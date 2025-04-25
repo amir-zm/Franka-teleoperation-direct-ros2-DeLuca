@@ -35,8 +35,7 @@
 #include "rotationErUnifiedAngleAxis.hpp"
 
 namespace zakerimanesh {
-FrankaLocal::FrankaLocal()
-    : Node("franka_teleoperation_local_node"), stop_control_loop_{false} {
+FrankaLocal::FrankaLocal() : Node("franka_teleoperation_local_node"), stop_control_loop_{false} {
   this->declare_parameter<std::vector<double>>("stiffness", {tr_s, tr_s, tr_s, r_s, r_s, r_s});
   this->declare_parameter<std::vector<double>>("damping", {tr_d, tr_d, tr_d, r_d, r_d, r_d});
 
@@ -71,7 +70,7 @@ void FrankaLocal::controlLoop() {
   CPU_SET(2, &cpuset);
   pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 
-  RCLCPP_INFO(this->get_logger(), "Connecting to franka robot ...");
+  RCLCPP_INFO(this->get_logger(), "Connecting to franka local robot ...");
 
   try {
     franka::Robot robot(robot_ip_);
@@ -104,13 +103,16 @@ void FrankaLocal::controlLoop() {
 
     // desired pose = initial pose (position+orientation)
     Eigen::Affine3d end_effector_desired_pose;
-
-    // model.zeroJacobian(franka::Frame::kEndEffector, robotOnlineState) gives
-    // std::array<double,42> model.zeroJacobian(franka::Frame::kEndEffector,
-    // robotOnlineState).data() return a pointer to the first element! so under the hood is like
-    // double matrix[6][7] and using returned pointer it fills the matrix!
     end_effector_desired_pose.matrix() =
         convertArrayToEigenMatrix<4, 4>(robot_initial_state.O_T_EE);
+
+    Eigen::Affine3d end_effector_online_pose;
+    Eigen::Matrix<double, 6, 1> end_effector_full_pose_error;
+    Eigen::Matrix<double, 7, 1> robot_coriolis_times_dq;
+    Eigen::Matrix<double, 6, 7> jacobian_matrix;
+    Eigen::Matrix<double, 7, 6> jacobian_matrix_transpose;
+    Eigen::Matrix<double, 6, 1> ee_velocity;
+    Eigen::Matrix<double, 7, 1> tau_output;
 
     // wrapper
     std::function<franka::Torques(const franka::RobotState&, franka::Duration)>
@@ -126,14 +128,12 @@ void FrankaLocal::controlLoop() {
       }
 
       // online end-effector pose (position+orientation)
-      Eigen::Affine3d end_effector_online_pose;
       end_effector_online_pose.matrix() = convertArrayToEigenMatrix<4, 4>(robotOnlineState.O_T_EE);
       Eigen::Matrix<double, 3, 3> orientation_error_in_base_frame =
           end_effector_online_pose.rotation();
 
       // full end-ffector pose error (position+orientation) "the current pose away from the
       // desired"
-      Eigen::Matrix<double, 6, 1> end_effector_full_pose_error;
       end_effector_full_pose_error
           << posErrorByPoses(end_effector_online_pose, end_effector_desired_pose),
           -orientation_error_in_base_frame *
@@ -141,28 +141,26 @@ void FrankaLocal::controlLoop() {
                   orientationErrorByPoses(end_effector_online_pose, end_effector_desired_pose));
 
       // robot coriolis (C(q,dq)*dq)
-      Eigen::Matrix<double, 7, 1> robot_coriolis_times_dq =
-          coriolisTimesDqVector(robotOnlineState, model);
+      robot_coriolis_times_dq = coriolisTimesDqVector(robotOnlineState, model);
 
       // robot jacobian (J is 6*7)
-      Eigen::Matrix<double, 6, 7> jacobian_matrix = jacobianMatrix(robotOnlineState, model);
+      jacobian_matrix = jacobianMatrix(robotOnlineState, model);
       const Eigen::Matrix<double, 6, 7>& jacobian_matrix_alias = jacobian_matrix;
 
       // jacobian_transpose
       // instead of using jacobian_matrix.transpose() now JM.transpose(), to avoid copying
-      Eigen::Matrix<double, 7, 6> jacobian_matrix_transpose = jacobian_matrix_alias.transpose();
+      jacobian_matrix_transpose = jacobian_matrix_alias.transpose();
       const Eigen::Matrix<double, 7, 6>& jacobian_matrix_transpose_alias =
-          jacobian_matrix_transpose;;
+          jacobian_matrix_transpose;
+      ;
 
       // Computing on-line end-effector linear velocity (xd = Jacobian * djoint_velocities)
-      Eigen::Matrix<double, 6, 1> ee_velocity =
-          jacobian_matrix_alias * convertArrayToEigenVector<7>(robotOnlineState.dq);
-
+      ee_velocity = jacobian_matrix_alias * convertArrayToEigenVector<7>(robotOnlineState.dq);
 
       // calculated torque
-      Eigen::Matrix<double, 7, 1> tau_output = calculatedTorques(stiffness_, damping_, end_effector_full_pose_error, ee_velocity,
-          jacobian_matrix_transpose_alias, robot_coriolis_times_dq);
-
+      tau_output =
+          calculatedTorques(stiffness_, damping_, end_effector_full_pose_error, ee_velocity,
+                            jacobian_matrix_transpose_alias, robot_coriolis_times_dq);
 
       return jointTorquesSent(tau_output);
     };
