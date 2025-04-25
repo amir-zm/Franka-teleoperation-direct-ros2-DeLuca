@@ -1,5 +1,5 @@
 franka_teleoperation_local_node: #node name
   ros__parameters:
-    stiffness: [100.0, 100.0, 100.0,  4.0,    4.0,   4.0] 
-    damping:   [20.0,   20.0,   20.0,    1.0,    1.0,    1.0]
+    stiffness: [121.0, 121.0, 121.0,  25.0,    25.0,   25.0] 
+    damping:   [22.0,   22.0,   22.0,    10.0,    10.0,    10.0]
     robot_ip: "192.168.1.11"

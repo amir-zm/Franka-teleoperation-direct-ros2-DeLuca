@@ -23,26 +23,26 @@ include_directories(
 )
 
 # executable
-add_executable(franka_local_node
+add_executable(franka_teleoperation_local_node
   src/franka_teleoperation_local_cpp.cpp
-  src/helper/frankaLocal.cpp
+  src/helper/FrankaLocal.cpp
   /home/mobilerobot/franka_ws/src/libfranka/examples/examples_common.cpp
 )
 
-ament_target_dependencies(franka_local_node
+ament_target_dependencies(franka_teleoperation_local_node
   rclcpp
   franka_msgs
   sensor_msgs
   std_msgs
 )
 
-target_link_libraries(franka_local_node
+target_link_libraries(franka_teleoperation_local_node
   Franka::Franka
 )
 
 # install targets
 install(TARGETS
-  franka_local_node
+franka_teleoperation_local_node
   ARCHIVE DESTINATION lib/${PROJECT_NAME}
   LIBRARY DESTINATION lib/${PROJECT_NAME}
   RUNTIME DESTINATION lib/${PROJECT_NAME}
