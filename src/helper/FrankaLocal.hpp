@@ -1,5 +1,5 @@
-#ifndef ZAKERIMANESH_CUSTOM_IMPEDANCE_NODE_HPP
-#define ZAKERIMANESH_CUSTOM_IMPEDANCE_NODE_HPP
+#ifndef ZAKERIMANESH_Franka_Local_HPP
+#define ZAKERIMANESH_Franka_Local_HPP
 
 #include <Eigen/Dense>
 #include <atomic>
@@ -8,7 +8,7 @@
 #include <thread>
 
 namespace zakerimanesh {
-class CustomImpedanceNode : public rclcpp::Node {
+class FrankaLocal : public rclcpp::Node {
  private:
   void controlLoop();
 
@@ -23,15 +23,13 @@ class CustomImpedanceNode : public rclcpp::Node {
   double r_s = 9;
   double r_d = 2 * std::sqrt(r_s);
 
-  Eigen::Matrix<double, 6, 6> inertia_ = Eigen::Matrix<double, 6, 6>::Zero();
-  Eigen::Matrix<double, 6, 6> inertia_inverse_ = Eigen::Matrix<double, 6, 6>::Zero();
   Eigen::Matrix<double, 6, 6> stiffness_ = Eigen::Matrix<double, 6, 6>::Zero();
   Eigen::Matrix<double, 6, 6> damping_ = Eigen::Matrix<double, 6, 6>::Zero();
 
  public:
-  CustomImpedanceNode();
-  ~CustomImpedanceNode();
+  FrankaLocal();
+  ~FrankaLocal();
 };
 }  // namespace zakerimanesh
 
-#endif  // ZAKERIMANESH_CUSTOM_IMPEDANCE_NODE_HPP
+#endif  // ZAKERIMANESH_Franka_Local_HPP

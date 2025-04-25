@@ -1,5 +1,5 @@
-#ifndef ZAKERIMANESH_CORIOLIS_TIME_DQ_HPP
-#define ZAKERIMANESH_CORIOLIS_TIME_DQ_HPP
+#ifndef ZAKERIMANESH_FRANKA_LOCAL_CORIOLIS_TIME_DQ_HPP
+#define ZAKERIMANESH_FRANKA_LOCAL_CORIOLIS_TIME_DQ_HPP
 
 #include <franka/model.h>
 #include <franka/robot_state.h>
@@ -20,4 +20,4 @@ inline Eigen::Matrix<double, 7, 1> coriolisTimesDqVector(const franka::RobotStat
   return Eigen::Map<const Eigen::Matrix<double, 7, 1>>(model.coriolis(robotOnlineState).data());}
 }  // namespace zakerimanesh
 
-#endif  // ZAKERIMANESH_CORIOLIS_TIME_DQ_HPP
+#endif  // ZAKERIMANESH_FRANKA_LOCAL_CORIOLIS_TIME_DQ_HPP

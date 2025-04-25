@@ -10,5 +10,9 @@
         "/home/mobilerobot/franka_ws/install/franka_msgs/local/lib/python3.10/dist-packages",
         "/opt/ros/humble/lib/python3.10/site-packages",
         "/opt/ros/humble/local/lib/python3.10/dist-packages"
-    ]
+    ],
+    "files.associations": {
+        "*.ipp": "cpp",
+        "thread": "cpp"
+    }
 }
