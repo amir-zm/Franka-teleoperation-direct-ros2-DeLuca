@@ -36,22 +36,17 @@
 
 namespace zakerimanesh {
 FrankaLocal::FrankaLocal() : Node("franka_teleoperation_local_node"), stop_control_loop_{false} {
-  this->declare_parameter<std::vector<double>>("stiffness", {tr_s, tr_s, tr_s, r_s, r_s, r_s});
-  this->declare_parameter<std::vector<double>>("damping", {tr_d, tr_d, tr_d, r_d, r_d, r_d});
-
-  // Retrieve parameter values. They can be overridden by YAML files or launch files.
-  std::vector<double> stiffness_values = this->get_parameter("stiffness").as_double_array();
-  std::vector<double> damping_values = this->get_parameter("damping").as_double_array();
-
-  // Fill in the diagonal elements
-  Eigen::Map<const Eigen::Matrix<double, 6, 1>> stifness_values_mapped(stiffness_values.data());
-  stiffness_.diagonal() = stifness_values_mapped;
-
-  Eigen::Map<const Eigen::Matrix<double, 6, 1>> damping_values_mapped(damping_values.data());
-  damping_.diagonal() = damping_values_mapped;
 
   this->declare_parameter<std::string>("robot_ip", "192.168.1.11");
   robot_ip_ = this->get_parameter("robot_ip").as_string();
+
+  this->declare_parameter<std::vector<double>>("stiffness", {121.0, 121.0, 121.0,  25.0, 25.0, 25.0});
+  auto stiffness_raw = this->get_parameter("stiffness").as_double_array();
+  stiffness_ = Eigen::Map<Eigen::Matrix<double,6,1>>( stiffness_raw.data() );
+
+  this->declare_parameter<std::vector<double>>("damping", {22.0, 22.0, 22.0, 10.0, 10.0, 10.0});
+  auto damping_raw = this->get_parameter("damping").as_double_array();
+  damping_ = Eigen::Map<Eigen::Matrix<double,6,1>>(damping_raw.data());
 
   control_thread_ = std::thread(&FrankaLocal::controlLoop, this);
 }
@@ -114,6 +109,13 @@ void FrankaLocal::controlLoop() {
     Eigen::Matrix<double, 6, 1> ee_velocity;
     Eigen::Matrix<double, 7, 1> tau_output;
 
+    // Fill in the diagonal elements
+    Eigen::Matrix<double, 6, 6> stiffness = Eigen::Matrix<double, 6, 6>::Zero();
+    stiffness.diagonal() = stiffness_;
+
+    Eigen::Matrix<double, 6, 6> damping = Eigen::Matrix<double, 6, 6>::Zero();
+    damping.diagonal() = damping_;
+
     // wrapper
     std::function<franka::Torques(const franka::RobotState&, franka::Duration)>
         impedance_control_callback;
@@ -159,7 +161,7 @@ void FrankaLocal::controlLoop() {
 
       // calculated torque
       tau_output =
-          calculatedTorques(stiffness_, damping_, end_effector_full_pose_error, ee_velocity,
+          calculatedTorques(stiffness, damping, end_effector_full_pose_error, ee_velocity,
                             jacobian_matrix_transpose_alias, robot_coriolis_times_dq);
 
       return jointTorquesSent(tau_output);
