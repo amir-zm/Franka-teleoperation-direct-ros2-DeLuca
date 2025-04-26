@@ -36,17 +36,17 @@
 
 namespace zakerimanesh {
 FrankaLocal::FrankaLocal() : Node("franka_teleoperation_local_node"), stop_control_loop_{false} {
-
   this->declare_parameter<std::string>("robot_ip", "192.168.1.11");
   robot_ip_ = this->get_parameter("robot_ip").as_string();
 
-  this->declare_parameter<std::vector<double>>("stiffness", {121.0, 121.0, 121.0,  25.0, 25.0, 25.0});
+  this->declare_parameter<std::vector<double>>("stiffness",
+                                               {121.0, 121.0, 121.0, 25.0, 25.0, 25.0});
   auto stiffness_raw = this->get_parameter("stiffness").as_double_array();
-  stiffness_ = Eigen::Map<Eigen::Matrix<double,6,1>>( stiffness_raw.data() );
+  stiffness_ = Eigen::Map<Eigen::Matrix<double, 6, 1>>(stiffness_raw.data());
 
   this->declare_parameter<std::vector<double>>("damping", {22.0, 22.0, 22.0, 10.0, 10.0, 10.0});
   auto damping_raw = this->get_parameter("damping").as_double_array();
-  damping_ = Eigen::Map<Eigen::Matrix<double,6,1>>(damping_raw.data());
+  damping_ = Eigen::Map<Eigen::Matrix<double, 6, 1>>(damping_raw.data());
 
   control_thread_ = std::thread(&FrankaLocal::controlLoop, this);
 }
@@ -160,9 +160,8 @@ void FrankaLocal::controlLoop() {
       ee_velocity = jacobian_matrix_alias * convertArrayToEigenVector<7>(robotOnlineState.dq);
 
       // calculated torque
-      tau_output =
-          calculatedTorques(stiffness, damping, end_effector_full_pose_error, ee_velocity,
-                            jacobian_matrix_transpose_alias, robot_coriolis_times_dq);
+      tau_output = calculatedTorques(stiffness, damping, end_effector_full_pose_error, ee_velocity,
+                                     jacobian_matrix_transpose_alias, robot_coriolis_times_dq);
 
       return jointTorquesSent(tau_output);
     };
