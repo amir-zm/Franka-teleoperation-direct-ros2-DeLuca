@@ -19,6 +19,7 @@ class FrankaLocal : public rclcpp::Node {
 
  private:
   std::thread local_control_thread_;
+  std::thread local_publish_thread_;
   std::atomic<bool> stop_control_loop_;
   std::string robot_ip_;
   Eigen::Matrix<double, 6, 1> stiffness_;
@@ -26,7 +27,7 @@ class FrankaLocal : public rclcpp::Node {
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub_;  
   rclcpp::TimerBase::SharedPtr timer_;
   sensor_msgs::msg::JointState msg_;
-  franka::RobotState localRobotState_;
+  franka::RobotState robotLocalState_;
 
   void controlLoop();
   void localStatePublishFrequency();

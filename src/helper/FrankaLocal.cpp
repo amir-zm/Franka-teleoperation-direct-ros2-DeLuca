@@ -52,7 +52,7 @@ FrankaLocal::FrankaLocal() : Node("franka_teleoperation_local_node"), stop_contr
   joint_state_pub_ =
       this->create_publisher<sensor_msgs::msg::JointState>("master_joint_states", 10);
   timer_ = this->create_wall_timer(
-      std::chrono::milliseconds(500),
+      std::chrono::milliseconds(2),
       std::bind(&FrankaLocal::localStatePublishFrequency, this));  // timer = is necessary!!
 
   local_control_thread_ = std::thread(&FrankaLocal::controlLoop, this);
@@ -66,12 +66,17 @@ FrankaLocal::~FrankaLocal() {
 }
 
 void FrankaLocal::localStatePublishFrequency() {
+    // Pin this thread to core 2
+    cpu_set_t cpuset4;
+    CPU_ZERO(&cpuset4);
+    CPU_SET(4, &cpuset4);
+    pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset4);
   msg_.header.stamp = this->now();
   msg_.name = {"fr3_joint1", "fr3_joint2", "fr3_joint3", "fr3_joint4",
                "fr3_joint5", "fr3_joint6", "fr3_joint7"};
-  msg_.position = std::vector<double>(localRobotState_.q.begin(), localRobotState_.q.end());
-  msg_.velocity = std::vector<double>(localRobotState_.dq.begin(), localRobotState_.dq.end());
-  msg_.effort = std::vector<double>(localRobotState_.tau_J.begin(), localRobotState_.tau_J.end());
+  msg_.position = std::vector<double>(robotLocalState_.q.begin(), robotLocalState_.q.end());
+  msg_.velocity = std::vector<double>(robotLocalState_.dq.begin(), robotLocalState_.dq.end());
+  msg_.effort = std::vector<double>(robotLocalState_.tau_J.begin(), robotLocalState_.tau_J.end());
   joint_state_pub_->publish(msg_);
 }
 
@@ -146,6 +151,7 @@ void FrankaLocal::controlLoop() {
         return franka::MotionFinished(franka::Torques{{0, 0, 0, 0, 0, 0, 0}});
       }
 
+      robotLocalState_ = robotOnlineState;
       // online end-effector pose (position+orientation)
       end_effector_online_pose.matrix() = convertArrayToEigenMatrix<4, 4>(robotOnlineState.O_T_EE);
       Eigen::Matrix<double, 3, 3> orientation_error_in_base_frame =
