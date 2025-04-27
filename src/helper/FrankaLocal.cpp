@@ -36,10 +36,7 @@
 #include "rotationErUnifiedAngleAxis.hpp"
 
 namespace zakerimanesh {
-FrankaLocal::FrankaLocal()
-    : Node("franka_teleoperation_local_node"),
-      stop_control_loop_{false},
-      stop_state_publish_loop_{false} {
+FrankaLocal::FrankaLocal() : Node("franka_teleoperation_local_node"), stop_control_loop_{false} {
   this->declare_parameter<std::string>("robot_ip", "192.168.1.11");
   robot_ip_ = this->get_parameter("robot_ip").as_string();
 
@@ -59,7 +56,6 @@ FrankaLocal::FrankaLocal()
       std::bind(&FrankaLocal::localStatePublishFrequency, this));  // timer = is necessary!!
 
   local_control_thread_ = std::thread(&FrankaLocal::controlLoop, this);
-  local_state_publish_thread_ = std::thread(&FrankaLocal::localStatePublishFrequency, this);
 }
 
 FrankaLocal::~FrankaLocal() {
@@ -67,29 +63,15 @@ FrankaLocal::~FrankaLocal() {
   if (local_control_thread_.joinable()) {
     local_control_thread_.join();
   }
-  //
-  stop_state_publish_loop_ = true;
-  if (local_state_publish_thread_.joinable()) {
-    local_state_publish_thread_.join();
-  }
 }
 
 void FrankaLocal::localStatePublishFrequency() {
-  // Pin this thread to core 4
-  cpu_set_t cpuset;
-  CPU_ZERO(&cpuset);
-  CPU_SET(4, &cpuset);
-  pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
-
   msg_.header.stamp = this->now();
   msg_.name = {"fr3_joint1", "fr3_joint2", "fr3_joint3", "fr3_joint4",
                "fr3_joint5", "fr3_joint6", "fr3_joint7"};
-  msg_.position =
-      std::vector<double>(localRobotrobotState_.q.begin(), localRobotrobotState_.q.end());
-  msg_.velocity =
-      std::vector<double>(localRobotrobotState_.dq.begin(), localRobotrobotState_.dq.end());
-  msg_.effort =
-      std::vector<double>(localRobotrobotState_.tau_J.begin(), localRobotrobotState_.tau_J.end());
+  msg_.position = std::vector<double>(localRobotState_.q.begin(), localRobotState_.q.end());
+  msg_.velocity = std::vector<double>(localRobotState_.dq.begin(), localRobotState_.dq.end());
+  msg_.effort = std::vector<double>(localRobotState_.tau_J.begin(), localRobotState_.tau_J.end());
   joint_state_pub_->publish(msg_);
 }
 
