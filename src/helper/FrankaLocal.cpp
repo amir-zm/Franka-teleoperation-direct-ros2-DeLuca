@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <string>
@@ -35,11 +36,15 @@
 #include "rotationErUnifiedAngleAxis.hpp"
 
 namespace zakerimanesh {
-FrankaLocal::FrankaLocal() : Node("franka_teleoperation_local_node"), stop_control_loop_{false} {
+FrankaLocal::FrankaLocal()
+    : Node("franka_teleoperation_local_node"),
+      stop_control_loop_{false},
+      stop_state_publish_loop_{false} {
   this->declare_parameter<std::string>("robot_ip", "192.168.1.11");
   robot_ip_ = this->get_parameter("robot_ip").as_string();
 
-  this->declare_parameter<std::vector<double>>("stiffness", {121.0, 121.0, 121.0, 25.0, 25.0, 25.0});
+  this->declare_parameter<std::vector<double>>("stiffness",
+                                               {121.0, 121.0, 121.0, 25.0, 25.0, 25.0});
   auto stiffness_raw = this->get_parameter("stiffness").as_double_array();
   stiffness_ = Eigen::Map<Eigen::Matrix<double, 6, 1>>(stiffness_raw.data());
 
@@ -47,17 +52,45 @@ FrankaLocal::FrankaLocal() : Node("franka_teleoperation_local_node"), stop_contr
   auto damping_raw = this->get_parameter("damping").as_double_array();
   damping_ = Eigen::Map<Eigen::Matrix<double, 6, 1>>(damping_raw.data());
 
-  joint_state_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("master_joint_states", 10);
+  joint_state_pub_ =
+      this->create_publisher<sensor_msgs::msg::JointState>("master_joint_states", 10);
+  timer_ = this->create_wall_timer(
+      std::chrono::milliseconds(500),
+      std::bind(&FrankaLocal::localStatePublishFrequency, this));  // timer = is necessary!!
 
-
-  control_thread_ = std::thread(&FrankaLocal::controlLoop, this);
+  local_control_thread_ = std::thread(&FrankaLocal::controlLoop, this);
+  local_state_publish_thread_ = std::thread(&FrankaLocal::localStatePublishFrequency, this);
 }
 
 FrankaLocal::~FrankaLocal() {
   stop_control_loop_ = true;
-  if (control_thread_.joinable()) {
-    control_thread_.join();
+  if (local_control_thread_.joinable()) {
+    local_control_thread_.join();
   }
+  //
+  stop_state_publish_loop_ = true;
+  if (local_state_publish_thread_.joinable()) {
+    local_state_publish_thread_.join();
+  }
+}
+
+void FrankaLocal::localStatePublishFrequency() {
+  // Pin this thread to core 4
+  cpu_set_t cpuset;
+  CPU_ZERO(&cpuset);
+  CPU_SET(4, &cpuset);
+  pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+
+  msg_.header.stamp = this->now();
+  msg_.name = {"fr3_joint1", "fr3_joint2", "fr3_joint3", "fr3_joint4",
+               "fr3_joint5", "fr3_joint6", "fr3_joint7"};
+  msg_.position =
+      std::vector<double>(localRobotrobotState_.q.begin(), localRobotrobotState_.q.end());
+  msg_.velocity =
+      std::vector<double>(localRobotrobotState_.dq.begin(), localRobotrobotState_.dq.end());
+  msg_.effort =
+      std::vector<double>(localRobotrobotState_.tau_J.begin(), localRobotrobotState_.tau_J.end());
+  joint_state_pub_->publish(msg_);
 }
 
 void FrankaLocal::controlLoop() {
@@ -110,8 +143,6 @@ void FrankaLocal::controlLoop() {
     Eigen::Matrix<double, 7, 6> jacobian_matrix_transpose;
     Eigen::Matrix<double, 6, 1> ee_velocity;
     Eigen::Matrix<double, 7, 1> tau_output;
-    sensor_msgs::msg::JointState msg;
-
 
     // Fill in the diagonal elements
     Eigen::Matrix<double, 6, 6> stiffness = Eigen::Matrix<double, 6, 6>::Zero();
@@ -132,14 +163,6 @@ void FrankaLocal::controlLoop() {
         // the special MotionFinished return halts the control loop immediately
         return franka::MotionFinished(franka::Torques{{0, 0, 0, 0, 0, 0, 0}});
       }
-
-      msg.header.stamp = this->now();
-      msg.name = {"fr3_joint1", "fr3_joint2", "fr3_joint3", "fr3_joint4", "fr3_joint5", "fr3_joint6", "fr3_joint7"};
-      msg.position = std::vector<double>(robotOnlineState.q.begin(), robotOnlineState.q.end());
-      msg.velocity = std::vector<double>(robotOnlineState.dq.begin(), robotOnlineState.dq.end());
-      msg.effort   = std::vector<double>(robotOnlineState.tau_J.begin(), robotOnlineState.tau_J.end());
-
-      joint_state_pub_->publish(msg);
 
       // online end-effector pose (position+orientation)
       end_effector_online_pose.matrix() = convertArrayToEigenMatrix<4, 4>(robotOnlineState.O_T_EE);
