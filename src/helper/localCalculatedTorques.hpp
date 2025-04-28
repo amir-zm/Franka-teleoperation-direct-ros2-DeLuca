@@ -5,7 +5,7 @@
 #include <Eigen/Dense>
 
 namespace zakerimanesh {
-inline Eigen::Matrix<double, 7, 1> calculatedTorques(
+inline Eigen::Matrix<double, 7, 1> localCalculatedTorques(
     const Eigen::Matrix<double, 6, 6>& stiffness,
     const Eigen::Matrix<double, 6, 6>& damping,
     const Eigen::Matrix<double, 6, 1>& end_effector_full_pose_error,

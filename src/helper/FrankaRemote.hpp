@@ -12,10 +12,10 @@
 #include <sensor_msgs/msg/joint_state.hpp>
 
 namespace zakerimanesh {
-class FrankaLocal : public rclcpp::Node {
+class FrankaRemote : public rclcpp::Node {
   public:
-  FrankaLocal();
-  ~FrankaLocal();
+  FrankaRemote();
+  ~FrankaRemote();
 
  private:
   std::thread remote_control_thread_;
@@ -30,7 +30,7 @@ class FrankaLocal : public rclcpp::Node {
   franka::RobotState robotRemoteState_;
 
   void controlLoop();
-  void remoteStateSubscription();
+  void remoteStateSubscription(const sensor_msgs::msg::JointState msg);
 };
 }  // namespace zakerimanesh
 

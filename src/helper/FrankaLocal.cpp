@@ -25,7 +25,7 @@
 #include <vector>
 
 #include "FrankaLocal.hpp"
-#include "calculatedTorques.hpp"
+#include "localCalculatedTorques.hpp"
 #include "convertArrayToEigenMatrix.hpp"
 #include "convertArrayToEigenVector.hpp"
 #include "coriolisTimesDqVector.hpp"
@@ -183,7 +183,7 @@ void FrankaLocal::controlLoop() {
       ee_velocity = jacobian_matrix_alias * convertArrayToEigenVector<7>(robotOnlineState.dq);
 
       // calculated torque
-      tau_output = calculatedTorques(stiffness, damping, end_effector_full_pose_error, ee_velocity,
+      tau_output = localCalculatedTorques(stiffness, damping, end_effector_full_pose_error, ee_velocity,
                                      jacobian_matrix_transpose_alias, robot_coriolis_times_dq);
 
       return jointTorquesSent(tau_output);

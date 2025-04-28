@@ -1,4 +1,3 @@
-
 // ROS C++ wrapper
 #include <rclcpp/rclcpp.hpp>
 
@@ -17,7 +16,6 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
-#include <chrono>
 #include <functional>
 #include <memory>
 #include <string>
@@ -25,15 +23,10 @@
 #include <vector>
 
 #include "FrankaRemote.hpp"
-#include "calculatedTorques.hpp"
-#include "convertArrayToEigenMatrix.hpp"
 #include "convertArrayToEigenVector.hpp"
 #include "coriolisTimesDqVector.hpp"
-#include "jacobianMatrix.hpp"
 #include "jointTorquesSent.hpp"
-#include "orientationErrorByPoses.hpp"
-#include "posErrorByPoses.hpp"
-#include "rotationErUnifiedAngleAxis.hpp"
+#include "remoteCalculatedTorques.hpp"
 
 namespace zakerimanesh {
 FrankaRemote::FrankaRemote() : Node("franka_teleoperation_remote_node"), stop_control_loop_{false} {
@@ -49,9 +42,9 @@ FrankaRemote::FrankaRemote() : Node("franka_teleoperation_remote_node"), stop_co
   auto damping_raw = this->get_parameter("damping").as_double_array();
   damping_ = Eigen::Map<Eigen::Matrix<double, 6, 1>>(damping_raw.data());
 
-  joint_state_subs_ =
-      this->create_subscription<sensor_msgs::msg::JointState>("local_joint_states", 10, std::bind(&Frankaremote::remoteStatePublish, this, std::placeholder::_1));
-
+  joint_state_subs_ = this->create_subscription<sensor_msgs::msg::JointState>(
+      "local_joint_states", 10,
+      std::bind(&FrankaRemote::remoteStateSubscription, this, std::placeholders::_1));
 
   remote_control_thread_ = std::thread(&FrankaRemote::controlLoop, this);
 }
@@ -63,40 +56,34 @@ FrankaRemote::~FrankaRemote() {
   }
 }
 
-void FrankaRemote::remoteStatePublish(const sensor_msgs::msg::JointState msg) {
-    // Pin this thread to core 2
-    cpu_set_t cpuset2;
-    CPU_ZERO(&cpuset2);
-    CPU_SET(4, &cpuset2);
-    pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset2);
+void FrankaRemote::remoteStateSubscription(const sensor_msgs::msg::JointState msg) {
+  // Pin this thread to core 2
+  cpu_set_t cpuset2;
+  CPU_ZERO(&cpuset2);
+  CPU_SET(4, &cpuset2);
+  pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset2);
 
-
-    msg_.header.stamp = this->now();
-    msg_.name = {"local_fr3_joint1", "local_fr3_joint2", "local_fr3_joint3", "local_fr3_joint4",
-                 "local_fr3_joint5", "local_fr3_joint6", "local_fr3_joint7"};
-    msg_.position = std::vector<double>(robotLocalState_.q.begin(), robotLocalState_.q.end());
-    msg_.velocity = std::vector<double>(robotLocalState_.dq.begin(), robotLocalState_.dq.end());
-    msg_.effort = std::vector<double>(robotLocalState_.tau_J.begin(), robotLocalState_.tau_J.end());
-
-    msg_ = msg;
-    msg.time.header = this->NOW();
+  msg_.header.stamp = this->now();
+  msg_.name = {"remote_fr3_joint1", "remote_fr3_joint2", "remote_fr3_joint3", "remote_fr3_joint4",
+               "remote_fr3_joint5", "remote_fr3_joint6", "remote_fr3_joint7"};
+  msg_.position = msg.position;
+  msg_.velocity = msg.velocity;
+  msg_.effort = msg.velocity;
 }
 
-void FrankaLocal::controlLoop() {
-  // Pin this thread to core 2
+void FrankaRemote::controlLoop() {
+  // Pin this thread to core 4
   cpu_set_t cpuset;
   CPU_ZERO(&cpuset);
-  CPU_SET(2, &cpuset);
+  CPU_SET(4, &cpuset);
   pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 
-  RCLCPP_INFO(this->get_logger(), "Connecting to franka local robot ...");
+  RCLCPP_INFO(this->get_logger(), "Connecting to franka remote robot ...");
 
   try {
     franka::Robot robot(robot_ip_);
     setDefaultBehavior(robot);
-
     franka::Model model = robot.loadModel();
-
     double torque_thresholds = 100;
     double force_thresholds = 100;
 
@@ -120,31 +107,24 @@ void FrankaLocal::controlLoop() {
 
     franka::RobotState robot_initial_state = robot.readOnce();
 
-    // desired pose = initial pose (position+orientation)
-    Eigen::Affine3d end_effector_desired_pose;
-    end_effector_desired_pose.matrix() =
-        convertArrayToEigenMatrix<4, 4>(robot_initial_state.O_T_EE);
-
-    Eigen::Affine3d end_effector_online_pose;
-    Eigen::Matrix<double, 6, 1> end_effector_full_pose_error;
+    Eigen::Matrix<double, 7, 1> desired_joints_positions;
+    Eigen::Matrix<double, 7, 1> desired_joints_velocities;
+    Eigen::Matrix<double, 7, 1> online_joints_positions_error;
+    Eigen::Matrix<double, 7, 1> online_joints_velocities_error;
     Eigen::Matrix<double, 7, 1> robot_coriolis_times_dq;
-    Eigen::Matrix<double, 6, 7> jacobian_matrix;
-    Eigen::Matrix<double, 7, 6> jacobian_matrix_transpose;
-    Eigen::Matrix<double, 6, 1> ee_velocity;
     Eigen::Matrix<double, 7, 1> tau_output;
+    Eigen::Matrix<double, 7, 7> stiffness = Eigen::Matrix<double, 7, 7>::Zero();
+    Eigen::Matrix<double, 7, 7> damping = Eigen::Matrix<double, 7, 7>::Zero();
 
     // Fill in the diagonal elements
-    Eigen::Matrix<double, 6, 6> stiffness = Eigen::Matrix<double, 6, 6>::Zero();
     stiffness.diagonal() = stiffness_;
-
-    Eigen::Matrix<double, 6, 6> damping = Eigen::Matrix<double, 6, 6>::Zero();
     damping.diagonal() = damping_;
 
     // wrapper
     std::function<franka::Torques(const franka::RobotState&, franka::Duration)>
         impedance_control_callback;
     // impedance_control_call
-    RCLCPP_INFO(this->get_logger(), "local control loop ...");
+    RCLCPP_INFO(this->get_logger(), "jointspace control loop ...");
 
     impedance_control_callback = [&](const franka::RobotState& robotOnlineState,
                                      franka::Duration /*duration*/) -> franka::Torques {
@@ -153,45 +133,29 @@ void FrankaLocal::controlLoop() {
         return franka::MotionFinished(franka::Torques{{0, 0, 0, 0, 0, 0, 0}});
       }
 
-      robotLocalState_ = robotOnlineState;
-      // online end-effector pose (position+orientation)
-      end_effector_online_pose.matrix() = convertArrayToEigenMatrix<4, 4>(robotOnlineState.O_T_EE);
-      Eigen::Matrix<double, 3, 3> orientation_error_in_base_frame =
-          end_effector_online_pose.rotation();
+      auto msg_position = msg_.position;
+      desired_joints_positions = Eigen::Map<Eigen::Matrix<double, 7, 1>>(msg_position.data());
 
-      // full end-ffector pose error (position+orientation) "the current pose away from the
-      // desired"
-      end_effector_full_pose_error
-          << posErrorByPoses(end_effector_online_pose, end_effector_desired_pose),
-          -orientation_error_in_base_frame *
-              rotationErUnifiedAngleAxis(
-                  orientationErrorByPoses(end_effector_online_pose, end_effector_desired_pose));
+      auto msg_velocity = msg_.velocity;
+      desired_joints_velocities = Eigen::Map<Eigen::Matrix<double, 7, 1>>(msg_velocity.data());
+
+      // online joints positions
+      online_joints_positions_error =
+          convertArrayToEigenVector<7>(robotOnlineState.q) - desired_joints_positions;
+      online_joints_velocities_error =
+          convertArrayToEigenVector<7>(robotOnlineState.dq) - desired_joints_velocities;
 
       // robot coriolis (C(q,dq)*dq)
       robot_coriolis_times_dq = coriolisTimesDqVector(robotOnlineState, model);
 
-      // robot jacobian (J is 6*7)
-      jacobian_matrix = jacobianMatrix(robotOnlineState, model);
-      const Eigen::Matrix<double, 6, 7>& jacobian_matrix_alias = jacobian_matrix;
-
-      // jacobian_transpose
-      // instead of using jacobian_matrix.transpose() now JM.transpose(), to avoid copying
-      jacobian_matrix_transpose = jacobian_matrix_alias.transpose();
-      const Eigen::Matrix<double, 7, 6>& jacobian_matrix_transpose_alias =
-          jacobian_matrix_transpose;
-      ;
-
-      // Computing on-line end-effector linear velocity (xd = Jacobian * djoint_velocities)
-      ee_velocity = jacobian_matrix_alias * convertArrayToEigenVector<7>(robotOnlineState.dq);
-
       // calculated torque
-      tau_output = calculatedTorques(stiffness, damping, end_effector_full_pose_error, ee_velocity,
-                                     jacobian_matrix_transpose_alias, robot_coriolis_times_dq);
+      tau_output = remoteCalculatedTorques(stiffness, damping, online_joints_positions_error,
+                                           online_joints_velocities_error, robot_coriolis_times_dq);
 
       return jointTorquesSent(tau_output);
     };
     // ROS action 1KHZ
-    RCLCPP_INFO(this->get_logger(), "Starting local impedance control loop...");
+    RCLCPP_INFO(this->get_logger(), "Starting jointspace impedance control loop...");
     robot.control(impedance_control_callback);
   } catch (const franka::Exception& e) {
     RCLCPP_ERROR(this->get_logger(), "Franka Exception: %s", e.what());
