@@ -136,14 +136,17 @@ void FrankaRemote::controlLoop() {
         return franka::MotionFinished(franka::Torques{{0, 0, 0, 0, 0, 0, 0}});
       }
 
+      std::vector<double, std::allocator<double>> msg_position;
+      std::vector<double, std::allocator<double>> msg_velocity;
+
       {
       std::lock_guard<std::mutex> subCallbackLock(subscriptionMutex_);
-      auto msg_position = msg_.position;
-      desired_joints_positions = Eigen::Map<Eigen::Matrix<double, 7, 1>>(msg_position.data());
-
-      auto msg_velocity = msg_.velocity;
-      desired_joints_velocities = Eigen::Map<Eigen::Matrix<double, 7, 1>>(msg_velocity.data());
+      msg_position = msg_.position;
+      msg_velocity = msg_.velocity;
       }
+
+      desired_joints_positions = Eigen::Map<Eigen::Matrix<double, 7, 1>>(msg_position.data());
+      desired_joints_velocities = Eigen::Map<Eigen::Matrix<double, 7, 1>>(msg_velocity.data());
 
       // online joints positions
       online_joints_positions_error =
