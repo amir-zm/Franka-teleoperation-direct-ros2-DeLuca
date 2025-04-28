@@ -75,11 +75,10 @@ void FrankaRemote::remoteStateSubscription(const sensor_msgs::msg::JointState ms
 }
 
 void FrankaRemote::controlLoop() {
+  CPU_ZERO(&cpuset3_);
+  CPU_SET(3, &cpuset3_);
   // Pin this thread to core 3
-  cpu_set_t cpuset3;
-  CPU_ZERO(&cpuset3);
-  CPU_SET(3, &cpuset3);
-  pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset3);
+  pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset3_);
 
   RCLCPP_INFO(this->get_logger(), "Connecting to franka remote robot ...");
 

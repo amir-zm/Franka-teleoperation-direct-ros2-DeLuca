@@ -25,12 +25,12 @@
 #include <vector>
 
 #include "FrankaLocal.hpp"
+#include "localCalculatedTorques.hpp"
 #include "convertArrayToEigenMatrix.hpp"
 #include "convertArrayToEigenVector.hpp"
 #include "coriolisTimesDqVector.hpp"
 #include "jacobianMatrix.hpp"
 #include "jointTorquesSent.hpp"
-#include "localCalculatedTorques.hpp"
 #include "orientationErrorByPoses.hpp"
 #include "posErrorByPoses.hpp"
 #include "rotationErUnifiedAngleAxis.hpp"
@@ -68,11 +68,11 @@ FrankaLocal::~FrankaLocal() {
 }
 
 void FrankaLocal::localStatePublishFrequency(const franka::RobotState& robotOnlineState) {
-  // // Pin this thread to core 4
-  // cpu_set_t cpuset4;
-  // CPU_ZERO(&cpuset4);
-  // CPU_SET(4, &cpuset4);
-  // pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset4);
+    // // Pin this thread to core 4
+    // cpu_set_t cpuset4;
+    // CPU_ZERO(&cpuset4);
+    // CPU_SET(4, &cpuset4);
+    // pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset4);
   msg_.header.stamp = this->now();
   msg_.name = {"fr3_joint1", "fr3_joint2", "fr3_joint3", "fr3_joint4",
                "fr3_joint5", "fr3_joint6", "fr3_joint7"};
@@ -84,10 +84,9 @@ void FrankaLocal::localStatePublishFrequency(const franka::RobotState& robotOnli
 
 void FrankaLocal::controlLoop() {
   // Pin this thread to core 2
-  cpu_set_t cpuset2;
-  CPU_ZERO(&cpuset2);
-  CPU_SET(2, &cpuset2);
-  pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset2);
+  CPU_ZERO(&cpuset2_);
+  CPU_SET(2, &cpuset2_);
+  pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset2_);
 
   RCLCPP_INFO(this->get_logger(), "Connecting to franka local robot ...");
 
@@ -184,9 +183,8 @@ void FrankaLocal::controlLoop() {
       ee_velocity = jacobian_matrix_alias * convertArrayToEigenVector<7>(robotOnlineState.dq);
 
       // calculated torque
-      tau_output =
-          localCalculatedTorques(stiffness, damping, end_effector_full_pose_error, ee_velocity,
-                                 jacobian_matrix_transpose_alias, robot_coriolis_times_dq);
+      tau_output = localCalculatedTorques(stiffness, damping, end_effector_full_pose_error, ee_velocity,
+                                     jacobian_matrix_transpose_alias, robot_coriolis_times_dq);
 
       return jointTorquesSent(tau_output);
     };

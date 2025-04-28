@@ -8,11 +8,9 @@
 #include <atomic>
 #include <string>
 #include <memory>
-#include <functional>
-#include <pthread.h>
-#include <sched.h>
 #include <thread>
 #include <sensor_msgs/msg/joint_state.hpp>
+#include <mutex>
 
 namespace zakerimanesh {
 class FrankaRemote : public rclcpp::Node {
@@ -20,11 +18,7 @@ class FrankaRemote : public rclcpp::Node {
   FrankaRemote();
   ~FrankaRemote();
 
-  private:
-  cpu_set_t cpuset1_;
-  CPU_ZERO(&cpuset1_);
-  CPU_SET(1, &cpuset1_);
-
+ private:
   std::thread remote_control_thread_;
   std::thread remote_publish_thread_;
   std::atomic<bool> stop_control_loop_;
@@ -36,6 +30,9 @@ class FrankaRemote : public rclcpp::Node {
   sensor_msgs::msg::JointState msg_;
   franka::RobotState robotRemoteState_;
   rclcpp::QoS qos_settings_{5};
+  std::mutex subscriptionMutex_;
+
+  cpu_set_t cpuset3_;
 
   void controlLoop();
   void remoteStateSubscription(const sensor_msgs::msg::JointState msg);

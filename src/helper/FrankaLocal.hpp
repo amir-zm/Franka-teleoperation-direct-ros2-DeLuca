@@ -28,12 +28,14 @@ class FrankaLocal : public rclcpp::Node {
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub_;  
   rclcpp::TimerBase::SharedPtr timer_;
   sensor_msgs::msg::JointState msg_;
-  franka::RobotState robotLocalState_;
   rclcpp::QoS qos_settings_{5};
+
+  cpu_set_t cpuset2_;
+
 
 
   void controlLoop();
-  void localStatePublishFrequency();
+  void localStatePublishFrequency(const franka::RobotState& robotOnlineState);
 };
 }  // namespace zakerimanesh
 
