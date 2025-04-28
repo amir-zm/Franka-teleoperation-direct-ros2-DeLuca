@@ -25,8 +25,7 @@ add_executable(franka_teleoperation
   src/franka_teleoperation_cpp.cpp
   src/helper/FrankaLocal.cpp
   src/helper/FrankaRemote.cpp
-  src/examples_common.cpp
-)
+  /home/mobilerobot/franka_ws/src/libfranka/examples/examples_common.cpp)
 
 ament_target_dependencies(
   franka_teleoperation
