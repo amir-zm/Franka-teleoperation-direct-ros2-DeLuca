@@ -21,32 +21,49 @@ include_directories(
   ${EIGEN3_INCLUDE_DIRS}
 )
 
-add_executable(franka_teleoperation
-  src/franka_teleoperation_cpp.cpp
+# local robot
+add_executable(franka_teleoperation_local_node
+  src/franka_teleoperation_local_cpp.cpp
   src/helper/FrankaLocal.cpp
-  src/helper/FrankaRemote.cpp
-  /home/mobilerobot/franka_ws/src/libfranka/examples/examples_common.cpp)
+  /home/mobilerobot/franka_ws/src/libfranka/examples/examples_common.cpp
+)
 
 ament_target_dependencies(
-  franka_teleoperation
+  franka_teleoperation_local_node
   rclcpp
   franka_msgs
   sensor_msgs
   std_msgs
   Eigen3
 )
-target_link_libraries(franka_teleoperation
+target_link_libraries(franka_teleoperation_local_node
   Franka::Franka
 )
 
-target_link_libraries(franka_teleoperation
+# remote robot
+add_executable(franka_teleoperation_remote_node
+  src/franka_teleoperation_remote_cpp.cpp
+  src/helper/FrankaRemote.cpp
+  /home/mobilerobot/franka_ws/src/libfranka/examples/examples_common.cpp
+)
+
+ament_target_dependencies(
+  franka_teleoperation_remote_node
+  rclcpp
+  franka_msgs
+  sensor_msgs
+  std_msgs
+  Eigen3
+)
+target_link_libraries(franka_teleoperation_remote_node
   Franka::Franka
 )
 
 # install targets
 install(
   TARGETS
-  franka_teleoperation
+  franka_teleoperation_local_node
+  franka_teleoperation_remote_node
   ARCHIVE DESTINATION lib/${PROJECT_NAME}
   LIBRARY DESTINATION lib/${PROJECT_NAME}
   RUNTIME DESTINATION lib/${PROJECT_NAME}
