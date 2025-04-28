@@ -8,6 +8,9 @@
 #include <atomic>
 #include <string>
 #include <memory>
+#include <functional>
+#include <pthread.h>
+#include <sched.h>
 #include <thread>
 #include <sensor_msgs/msg/joint_state.hpp>
 
@@ -17,7 +20,11 @@ class FrankaRemote : public rclcpp::Node {
   FrankaRemote();
   ~FrankaRemote();
 
- private:
+  private:
+  cpu_set_t cpuset1_;
+  CPU_ZERO(&cpuset1_);
+  CPU_SET(1, &cpuset1_);
+
   std::thread remote_control_thread_;
   std::thread remote_publish_thread_;
   std::atomic<bool> stop_control_loop_;

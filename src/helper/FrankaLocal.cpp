@@ -25,12 +25,12 @@
 #include <vector>
 
 #include "FrankaLocal.hpp"
-#include "localCalculatedTorques.hpp"
 #include "convertArrayToEigenMatrix.hpp"
 #include "convertArrayToEigenVector.hpp"
 #include "coriolisTimesDqVector.hpp"
 #include "jacobianMatrix.hpp"
 #include "jointTorquesSent.hpp"
+#include "localCalculatedTorques.hpp"
 #include "orientationErrorByPoses.hpp"
 #include "posErrorByPoses.hpp"
 #include "rotationErUnifiedAngleAxis.hpp"
@@ -53,9 +53,9 @@ FrankaLocal::FrankaLocal() : Node("franka_teleoperation_local_node"), stop_contr
 
   joint_state_pub_ =
       this->create_publisher<sensor_msgs::msg::JointState>("local_joint_states", qos_settings_);
-  timer_ = this->create_wall_timer(
-      std::chrono::milliseconds(1),
-      std::bind(&FrankaLocal::localStatePublishFrequency, this));  // timer = is necessary!!
+  // timer_ = this->create_wall_timer(
+  //     std::chrono::milliseconds(2),
+  //     std::bind(&FrankaLocal::localStatePublishFrequency, this));  // timer = is necessary!!
 
   local_control_thread_ = std::thread(&FrankaLocal::controlLoop, this);
 }
@@ -67,18 +67,18 @@ FrankaLocal::~FrankaLocal() {
   }
 }
 
-void FrankaLocal::localStatePublishFrequency() {
-    // Pin this thread to core 4
-    cpu_set_t cpuset4;
-    CPU_ZERO(&cpuset4);
-    CPU_SET(4, &cpuset4);
-    pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset4);
+void FrankaLocal::localStatePublishFrequency(const franka::RobotState& robotOnlineState) {
+  // // Pin this thread to core 4
+  // cpu_set_t cpuset4;
+  // CPU_ZERO(&cpuset4);
+  // CPU_SET(4, &cpuset4);
+  // pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset4);
   msg_.header.stamp = this->now();
   msg_.name = {"fr3_joint1", "fr3_joint2", "fr3_joint3", "fr3_joint4",
                "fr3_joint5", "fr3_joint6", "fr3_joint7"};
-  msg_.position = std::vector<double>(robotLocalState_.q.begin(), robotLocalState_.q.end());
-  msg_.velocity = std::vector<double>(robotLocalState_.dq.begin(), robotLocalState_.dq.end());
-  msg_.effort = std::vector<double>(robotLocalState_.tau_J.begin(), robotLocalState_.tau_J.end());
+  msg_.position = std::vector<double>(robotOnlineState.q.begin(), robotOnlineState.q.end());
+  msg_.velocity = std::vector<double>(robotOnlineState.dq.begin(), robotOnlineState.dq.end());
+  msg_.effort = std::vector<double>(robotOnlineState.tau_J.begin(), robotOnlineState.tau_J.end());
   joint_state_pub_->publish(msg_);
 }
 
@@ -153,7 +153,6 @@ void FrankaLocal::controlLoop() {
         return franka::MotionFinished(franka::Torques{{0, 0, 0, 0, 0, 0, 0}});
       }
 
-      robotLocalState_ = robotOnlineState;
       // online end-effector pose (position+orientation)
       end_effector_online_pose.matrix() = convertArrayToEigenMatrix<4, 4>(robotOnlineState.O_T_EE);
       Eigen::Matrix<double, 3, 3> orientation_error_in_base_frame =
@@ -185,8 +184,9 @@ void FrankaLocal::controlLoop() {
       ee_velocity = jacobian_matrix_alias * convertArrayToEigenVector<7>(robotOnlineState.dq);
 
       // calculated torque
-      tau_output = localCalculatedTorques(stiffness, damping, end_effector_full_pose_error, ee_velocity,
-                                     jacobian_matrix_transpose_alias, robot_coriolis_times_dq);
+      tau_output =
+          localCalculatedTorques(stiffness, damping, end_effector_full_pose_error, ee_velocity,
+                                 jacobian_matrix_transpose_alias, robot_coriolis_times_dq);
 
       return jointTorquesSent(tau_output);
     };

@@ -60,11 +60,12 @@ FrankaRemote::~FrankaRemote() {
 }
 
 void FrankaRemote::remoteStateSubscription(const sensor_msgs::msg::JointState msg) {
-  // Pin this thread to core 2
-  cpu_set_t cpuset2;
-  CPU_ZERO(&cpuset2);
-  CPU_SET(4, &cpuset2);
-  pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset2);
+  std::lock_guard<std::mutex> subLock(subscriptionMutex_);
+  // Pin this thread to core 1
+  // cpu_set_t cpuset1;
+  // CPU_ZERO(&cpuset1);
+  // CPU_SET(1, &cpuset1);
+  // pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset1);
 
   msg_.header.stamp = this->now();
   msg_.name = {"remote_fr3_joint1", "remote_fr3_joint2", "remote_fr3_joint3", "remote_fr3_joint4",
@@ -74,11 +75,11 @@ void FrankaRemote::remoteStateSubscription(const sensor_msgs::msg::JointState ms
 }
 
 void FrankaRemote::controlLoop() {
-  // Pin this thread to core 4
-  cpu_set_t cpuset4;
-  CPU_ZERO(&cpuset4);
-  CPU_SET(4, &cpuset4);
-  pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset4);
+  // Pin this thread to core 3
+  cpu_set_t cpuset3;
+  CPU_ZERO(&cpuset3);
+  CPU_SET(3, &cpuset3);
+  pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset3);
 
   RCLCPP_INFO(this->get_logger(), "Connecting to franka remote robot ...");
 
@@ -109,8 +110,8 @@ void FrankaRemote::controlLoop() {
 
     franka::RobotState robot_initial_state = robot.readOnce();
 
-    Eigen::Matrix<double, 7, 1> desired_joints_positions;
-    Eigen::Matrix<double, 7, 1> desired_joints_velocities;
+    Eigen::Matrix<double, 7, 1> desired_joints_positions = convertArrayToEigenVector(robot_initial_state.q);
+    Eigen::Matrix<double, 7, 1> desired_joints_velocities =  convertArrayToEigenVector(robot_initial_state.dq);
     Eigen::Matrix<double, 7, 1> online_joints_positions_error;
     Eigen::Matrix<double, 7, 1> online_joints_velocities_error;
     Eigen::Matrix<double, 7, 1> robot_coriolis_times_dq;
@@ -135,11 +136,14 @@ void FrankaRemote::controlLoop() {
         return franka::MotionFinished(franka::Torques{{0, 0, 0, 0, 0, 0, 0}});
       }
 
+      {
+      std::lock_guard<std::mutex> subCallbackLock(subscriptionMutex_);
       auto msg_position = msg_.position;
       desired_joints_positions = Eigen::Map<Eigen::Matrix<double, 7, 1>>(msg_position.data());
 
       auto msg_velocity = msg_.velocity;
       desired_joints_velocities = Eigen::Map<Eigen::Matrix<double, 7, 1>>(msg_velocity.data());
+      }
 
       // online joints positions
       online_joints_positions_error =
