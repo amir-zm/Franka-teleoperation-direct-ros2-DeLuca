@@ -30,17 +30,18 @@
 
 namespace zakerimanesh {
 FrankaRemote::FrankaRemote() : Node("franka_teleoperation_remote_node"), stop_control_loop_{false} {
+
   this->declare_parameter<std::string>("robot_ip", "192.168.1.12");
   robot_ip_ = this->get_parameter("robot_ip").as_string();
 
   this->declare_parameter<std::vector<double>>("stiffness",
-                                               {121.0, 121.0, 121.0, 25.0, 25.0, 25.0});
+                                               {81.0, 81.0, 81.0, 81.0, 81.0, 81.0, 81.0});
   auto stiffness_raw = this->get_parameter("stiffness").as_double_array();
-  stiffness_ = Eigen::Map<Eigen::Matrix<double, 6, 1>>(stiffness_raw.data());
+  stiffness_ = Eigen::Map<Eigen::Matrix<double, 7, 1>>(stiffness_raw.data());
 
-  this->declare_parameter<std::vector<double>>("damping", {22.0, 22.0, 22.0, 10.0, 10.0, 10.0});
+  this->declare_parameter<std::vector<double>>("damping", {18.0, 18.0, 18.0, 18.0, 18.0, 18.0, 18.0});
   auto damping_raw = this->get_parameter("damping").as_double_array();
-  damping_ = Eigen::Map<Eigen::Matrix<double, 6, 1>>(damping_raw.data());
+  damping_ = Eigen::Map<Eigen::Matrix<double, 7, 1>>(damping_raw.data());
 
   joint_state_subs_ = this->create_subscription<sensor_msgs::msg::JointState>(
       "local_joint_states", 10,
@@ -73,10 +74,10 @@ void FrankaRemote::remoteStateSubscription(const sensor_msgs::msg::JointState ms
 
 void FrankaRemote::controlLoop() {
   // Pin this thread to core 4
-  cpu_set_t cpuset;
-  CPU_ZERO(&cpuset);
-  CPU_SET(4, &cpuset);
-  pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+  cpu_set_t cpuset4;
+  CPU_ZERO(&cpuset4);
+  CPU_SET(4, &cpuset4);
+  pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset4);
 
   RCLCPP_INFO(this->get_logger(), "Connecting to franka remote robot ...");
 
@@ -84,8 +85,8 @@ void FrankaRemote::controlLoop() {
     franka::Robot robot(robot_ip_);
     setDefaultBehavior(robot);
     franka::Model model = robot.loadModel();
-    double torque_thresholds = 100;
-    double force_thresholds = 100;
+    double torque_thresholds = 80;
+    double force_thresholds = 80;
 
     // set collision behavior
     const std::array<double, 7> lower_torque_thresholds_acceleration = {
@@ -155,7 +156,7 @@ void FrankaRemote::controlLoop() {
       return jointTorquesSent(tau_output);
     };
     // ROS action 1KHZ
-    RCLCPP_INFO(this->get_logger(), "Starting jointspace impedance control loop...");
+    RCLCPP_INFO(this->get_logger(), "Starting remote impedance control loop...");
     robot.control(impedance_control_callback);
   } catch (const franka::Exception& e) {
     RCLCPP_ERROR(this->get_logger(), "Franka Exception: %s", e.what());

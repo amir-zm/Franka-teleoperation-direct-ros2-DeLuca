@@ -22,8 +22,8 @@ class FrankaRemote : public rclcpp::Node {
   std::thread remote_publish_thread_;
   std::atomic<bool> stop_control_loop_;
   std::string robot_ip_;
-  Eigen::Matrix<double, 6, 1> stiffness_;
-  Eigen::Matrix<double, 6, 1> damping_;
+  Eigen::Matrix<double, 7, 1> stiffness_;
+  Eigen::Matrix<double, 7, 1> damping_;
   rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_subs_;  
   rclcpp::TimerBase::SharedPtr timer_;
   sensor_msgs::msg::JointState msg_;

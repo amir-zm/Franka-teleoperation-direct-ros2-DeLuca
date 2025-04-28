@@ -66,7 +66,7 @@ FrankaLocal::~FrankaLocal() {
 }
 
 void FrankaLocal::localStatePublishFrequency() {
-    // Pin this thread to core 2
+    // Pin this thread to core 4
     cpu_set_t cpuset4;
     CPU_ZERO(&cpuset4);
     CPU_SET(4, &cpuset4);
@@ -82,10 +82,10 @@ void FrankaLocal::localStatePublishFrequency() {
 
 void FrankaLocal::controlLoop() {
   // Pin this thread to core 2
-  cpu_set_t cpuset;
-  CPU_ZERO(&cpuset);
-  CPU_SET(2, &cpuset);
-  pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+  cpu_set_t cpuset2;
+  CPU_ZERO(&cpuset2);
+  CPU_SET(2, &cpuset2);
+  pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset2);
 
   RCLCPP_INFO(this->get_logger(), "Connecting to franka local robot ...");
 
@@ -95,8 +95,8 @@ void FrankaLocal::controlLoop() {
 
     franka::Model model = robot.loadModel();
 
-    double torque_thresholds = 100;
-    double force_thresholds = 100;
+    double torque_thresholds = 80;
+    double force_thresholds = 80;
 
     // set collision behavior
     const std::array<double, 7> lower_torque_thresholds_acceleration = {
