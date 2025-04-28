@@ -24,7 +24,7 @@
 #include <thread>
 #include <vector>
 
-#include "FrankaLocal.hpp"
+#include "FrankaRemote.hpp"
 #include "calculatedTorques.hpp"
 #include "convertArrayToEigenMatrix.hpp"
 #include "convertArrayToEigenVector.hpp"
@@ -36,8 +36,8 @@
 #include "rotationErUnifiedAngleAxis.hpp"
 
 namespace zakerimanesh {
-FrankaLocal::FrankaLocal() : Node("franka_teleoperation_local_node"), stop_control_loop_{false} {
-  this->declare_parameter<std::string>("robot_ip", "192.168.1.11");
+FrankaRemote::FrankaRemote() : Node("franka_teleoperation_remote_node"), stop_control_loop_{false} {
+  this->declare_parameter<std::string>("robot_ip", "192.168.1.12");
   robot_ip_ = this->get_parameter("robot_ip").as_string();
 
   this->declare_parameter<std::vector<double>>("stiffness",
@@ -49,35 +49,37 @@ FrankaLocal::FrankaLocal() : Node("franka_teleoperation_local_node"), stop_contr
   auto damping_raw = this->get_parameter("damping").as_double_array();
   damping_ = Eigen::Map<Eigen::Matrix<double, 6, 1>>(damping_raw.data());
 
-  joint_state_pub_ =
-      this->create_publisher<sensor_msgs::msg::JointState>("local_joint_states", 10);
-  timer_ = this->create_wall_timer(
-      std::chrono::milliseconds(2),
-      std::bind(&FrankaLocal::localStatePublishFrequency, this));  // timer = is necessary!!
+  joint_state_subs_ =
+      this->create_subscription<sensor_msgs::msg::JointState>("local_joint_states", 10, std::bind(&Frankaremote::remoteStatePublish, this, std::placeholder::_1));
 
-  local_control_thread_ = std::thread(&FrankaLocal::controlLoop, this);
+
+  remote_control_thread_ = std::thread(&FrankaRemote::controlLoop, this);
 }
 
-FrankaLocal::~FrankaLocal() {
+FrankaRemote::~FrankaRemote() {
   stop_control_loop_ = true;
-  if (local_control_thread_.joinable()) {
-    local_control_thread_.join();
+  if (remote_control_thread_.joinable()) {
+    remote_control_thread_.join();
   }
 }
 
-void FrankaLocal::localStatePublishFrequency() {
+void FrankaRemote::remoteStatePublish(const sensor_msgs::msg::JointState msg) {
     // Pin this thread to core 2
-    cpu_set_t cpuset4;
-    CPU_ZERO(&cpuset4);
-    CPU_SET(4, &cpuset4);
-    pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset4);
-  msg_.header.stamp = this->now();
-  msg_.name = {"fr3_joint1", "fr3_joint2", "fr3_joint3", "fr3_joint4",
-               "fr3_joint5", "fr3_joint6", "fr3_joint7"};
-  msg_.position = std::vector<double>(robotLocalState_.q.begin(), robotLocalState_.q.end());
-  msg_.velocity = std::vector<double>(robotLocalState_.dq.begin(), robotLocalState_.dq.end());
-  msg_.effort = std::vector<double>(robotLocalState_.tau_J.begin(), robotLocalState_.tau_J.end());
-  joint_state_pub_->publish(msg_);
+    cpu_set_t cpuset2;
+    CPU_ZERO(&cpuset2);
+    CPU_SET(4, &cpuset2);
+    pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset2);
+
+
+    msg_.header.stamp = this->now();
+    msg_.name = {"local_fr3_joint1", "local_fr3_joint2", "local_fr3_joint3", "local_fr3_joint4",
+                 "local_fr3_joint5", "local_fr3_joint6", "local_fr3_joint7"};
+    msg_.position = std::vector<double>(robotLocalState_.q.begin(), robotLocalState_.q.end());
+    msg_.velocity = std::vector<double>(robotLocalState_.dq.begin(), robotLocalState_.dq.end());
+    msg_.effort = std::vector<double>(robotLocalState_.tau_J.begin(), robotLocalState_.tau_J.end());
+
+    msg_ = msg;
+    msg.time.header = this->NOW();
 }
 
 void FrankaLocal::controlLoop() {
