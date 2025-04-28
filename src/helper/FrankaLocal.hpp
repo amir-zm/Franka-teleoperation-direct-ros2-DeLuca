@@ -4,6 +4,7 @@
 #include <franka/robot_state.h>
 
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp/qos.hpp>
 #include <Eigen/Dense>
 #include <atomic>
 #include <string>
@@ -28,6 +29,8 @@ class FrankaLocal : public rclcpp::Node {
   rclcpp::TimerBase::SharedPtr timer_;
   sensor_msgs::msg::JointState msg_;
   franka::RobotState robotLocalState_;
+  rclcpp::QoS qos_settings_{5};
+
 
   void controlLoop();
   void localStatePublishFrequency();

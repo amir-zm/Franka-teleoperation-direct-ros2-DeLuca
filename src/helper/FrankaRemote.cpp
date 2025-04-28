@@ -43,8 +43,10 @@ FrankaRemote::FrankaRemote() : Node("franka_teleoperation_remote_node"), stop_co
   auto damping_raw = this->get_parameter("damping").as_double_array();
   damping_ = Eigen::Map<Eigen::Matrix<double, 7, 1>>(damping_raw.data());
 
+  qos_settings_.reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE);
+
   joint_state_subs_ = this->create_subscription<sensor_msgs::msg::JointState>(
-      "local_joint_states", 10,
+      "local_joint_states", qos_settings_,
       std::bind(&FrankaRemote::remoteStateSubscription, this, std::placeholders::_1));
 
   remote_control_thread_ = std::thread(&FrankaRemote::controlLoop, this);
@@ -69,7 +71,6 @@ void FrankaRemote::remoteStateSubscription(const sensor_msgs::msg::JointState ms
                "remote_fr3_joint5", "remote_fr3_joint6", "remote_fr3_joint7"};
   msg_.position = msg.position;
   msg_.velocity = msg.velocity;
-  msg_.effort = msg.velocity;
 }
 
 void FrankaRemote::controlLoop() {

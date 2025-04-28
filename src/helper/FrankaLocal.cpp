@@ -49,10 +49,12 @@ FrankaLocal::FrankaLocal() : Node("franka_teleoperation_local_node"), stop_contr
   auto damping_raw = this->get_parameter("damping").as_double_array();
   damping_ = Eigen::Map<Eigen::Matrix<double, 6, 1>>(damping_raw.data());
 
+  qos_settings_.reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE);
+
   joint_state_pub_ =
-      this->create_publisher<sensor_msgs::msg::JointState>("local_joint_states", 10);
+      this->create_publisher<sensor_msgs::msg::JointState>("local_joint_states", qos_settings_);
   timer_ = this->create_wall_timer(
-      std::chrono::milliseconds(2),
+      std::chrono::milliseconds(1),
       std::bind(&FrankaLocal::localStatePublishFrequency, this));  // timer = is necessary!!
 
   local_control_thread_ = std::thread(&FrankaLocal::controlLoop, this);

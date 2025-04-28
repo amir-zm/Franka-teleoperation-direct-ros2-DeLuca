@@ -28,6 +28,7 @@ class FrankaRemote : public rclcpp::Node {
   rclcpp::TimerBase::SharedPtr timer_;
   sensor_msgs::msg::JointState msg_;
   franka::RobotState robotRemoteState_;
+  rclcpp::QoS qos_settings_{5};
 
   void controlLoop();
   void remoteStateSubscription(const sensor_msgs::msg::JointState msg);
