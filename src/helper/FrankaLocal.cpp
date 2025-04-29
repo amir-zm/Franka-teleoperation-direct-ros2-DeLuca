@@ -56,7 +56,7 @@ FrankaLocal::FrankaLocal() : Node("franka_teleoperation_local_node"), stop_contr
   joint_state_pub_ =
       this->create_publisher<sensor_msgs::msg::JointState>("local_joint_states", qos_settings_);
   timer_ = this->create_wall_timer(
-      std::chrono::milliseconds(2),
+      std::chrono::milliseconds(1),
       std::bind(&FrankaLocal::localStatePublishFrequency, this));  // timer = is necessary!!
 
   local_control_thread_ = std::thread(&FrankaLocal::controlLoop, this);
@@ -203,7 +203,7 @@ void FrankaLocal::controlLoop() {
     };
     // ROS action 1KHZ
     RCLCPP_INFO(this->get_logger(), "Starting local impedance control loop...");
-    robot.control(impedance_control_callback);
+    robot.control(impedance_control_callback, true);
   } catch (const franka::Exception& e) {
     RCLCPP_ERROR(this->get_logger(), "Franka Exception: %s", e.what());
   }
