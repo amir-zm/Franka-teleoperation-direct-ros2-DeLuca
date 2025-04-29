@@ -21,12 +21,4 @@ This folder contains low-level helper libraries used by the `franka_teleoperatio
 | **FrankaLocal.hpp / .cpp**                       | `FrankaLocal` class: real‐time loop for the master (local) side     |
 | **FrankaRemote.hpp / .cpp**                      | `FrankaRemote` class: real‐time loop for the slave (remote) side    |
 
----
 
-## 🔍 Detailed descriptions
-
-### 1. convertArrayToEigenMatrix.hpp  
-- **Function**:  
-  ```cpp
-  template <size_t R, size_t C>
-  Eigen::Matrix<double,R,C> toEigenMatrix(const std::array<double,R*C>& data);
