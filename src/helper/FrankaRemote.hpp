@@ -33,6 +33,7 @@ class FrankaRemote : public rclcpp::Node {
   std::mutex subscriptionMutex_;
 
   cpu_set_t cpuset3_;
+  cpu_set_t cpuset1_;
 
   void controlLoop();
   void remoteStateSubscription(const sensor_msgs::msg::JointState msg);

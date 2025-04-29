@@ -19,8 +19,8 @@ class FrankaLocal : public rclcpp::Node {
   ~FrankaLocal();
 
  private:
+  std::mutex robot_state_mutex_;
   std::thread local_control_thread_;
-  std::thread local_publish_thread_;
   std::atomic<bool> stop_control_loop_;
   std::string robot_ip_;
   Eigen::Matrix<double, 6, 1> stiffness_;
@@ -29,13 +29,13 @@ class FrankaLocal : public rclcpp::Node {
   rclcpp::TimerBase::SharedPtr timer_;
   sensor_msgs::msg::JointState msg_;
   rclcpp::QoS qos_settings_{5};
+  franka::RobotState robotOnlineState_; 
 
   cpu_set_t cpuset2_;
-
-
+  cpu_set_t cpuset4_;
 
   void controlLoop();
-  void localStatePublishFrequency(const franka::RobotState& robotOnlineState);
+  void localStatePublishFrequency();
 };
 }  // namespace zakerimanesh
 
