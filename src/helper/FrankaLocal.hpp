@@ -11,6 +11,7 @@
 #include <memory>
 #include <thread>
 #include <sensor_msgs/msg/joint_state.hpp>
+#include <mutex>
 
 namespace zakerimanesh {
 class FrankaLocal : public rclcpp::Node {
@@ -19,7 +20,7 @@ class FrankaLocal : public rclcpp::Node {
   ~FrankaLocal();
 
  private:
-  std::mutex robot_state_mutex_;
+  std::mutex robot_state_pub_mutex_;
   std::thread local_control_thread_;
   std::atomic<bool> stop_control_loop_;
   std::string robot_ip_;

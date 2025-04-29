@@ -30,7 +30,7 @@ class FrankaRemote : public rclcpp::Node {
   sensor_msgs::msg::JointState msg_;
   franka::RobotState robotRemoteState_;
   rclcpp::QoS qos_settings_{5};
-  std::mutex subscriptionMutex_;
+  std::mutex robot_state_sub_mutex_;
 
   cpu_set_t cpuset3_;
   cpu_set_t cpuset1_;

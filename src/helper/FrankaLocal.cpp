@@ -77,9 +77,9 @@ void FrankaLocal::localStatePublishFrequency() {
   CPU_ZERO(&cpuset4_);
   CPU_SET(4, &cpuset4_);
   pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset4_);
-  msg_.header.stamp = this->now();
   {
-    std::lock_guard<std::mutex> lk(robot_state_mutex_);
+    std::lock_guard<std::mutex> publishLock(robot_state_pub_mutex_);
+    msg_.header.stamp = this->now();
     msg_.position = std::vector<double>(robotOnlineState_.q.begin(), robotOnlineState_.q.end());
     msg_.velocity = std::vector<double>(robotOnlineState_.dq.begin(), robotOnlineState_.dq.end());
     // msg_.effort =
@@ -160,7 +160,7 @@ void FrankaLocal::controlLoop() {
       }
       // publishing local joints
       {
-        std::lock_guard<std::mutex> lk(robot_state_mutex_);
+        std::lock_guard<std::mutex> publishLock(robot_state_pub_mutex_);
         robotOnlineState_ = robotOnlineState;
       }
 

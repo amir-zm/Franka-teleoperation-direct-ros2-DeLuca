@@ -21,6 +21,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <mutex>
 
 #include "FrankaRemote.hpp"
 #include "convertArrayToEigenVector.hpp"
@@ -68,11 +69,12 @@ void FrankaRemote::remoteStateSubscription(const sensor_msgs::msg::JointState ms
   CPU_ZERO(&cpuset1);
   CPU_SET(1, &cpuset1);
   pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset1);
-
-  std::lock_guard<std::mutex> subLock(subscriptionMutex_);
-  msg_.header.stamp = this->now();
-  msg_.position = msg.position;
-  msg_.velocity = msg.velocity;
+  {
+    std::lock_guard<std::mutex> subLock(robot_state_sub_mutex_);
+    msg_.header.stamp = this->now();
+    msg_.position = msg.position;
+    msg_.velocity = msg.velocity;
+  }
 }
 
 void FrankaRemote::controlLoop() {
@@ -125,6 +127,9 @@ void FrankaRemote::controlLoop() {
     stiffness.diagonal() = stiffness_;
     damping.diagonal() = damping_;
 
+    std::vector<double, std::allocator<double>> msg_position;
+    std::vector<double, std::allocator<double>> msg_velocity;
+
     // wrapper
     std::function<franka::Torques(const franka::RobotState&, franka::Duration)>
         impedance_control_callback;
@@ -138,11 +143,8 @@ void FrankaRemote::controlLoop() {
         return franka::MotionFinished(franka::Torques{{0, 0, 0, 0, 0, 0, 0}});
       }
 
-      std::vector<double, std::allocator<double>> msg_position;
-      std::vector<double, std::allocator<double>> msg_velocity;
-
       {
-        std::lock_guard<std::mutex> subCallbackLock(subscriptionMutex_);
+        std::lock_guard<std::mutex> subLock(robot_state_sub_mutex_);
         msg_position = msg_.position;
         msg_velocity = msg_.velocity;
       }
