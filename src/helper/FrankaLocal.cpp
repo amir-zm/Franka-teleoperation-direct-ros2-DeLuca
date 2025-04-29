@@ -20,11 +20,11 @@
 #include <chrono>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <string>
 #include <thread>
 #include <vector>
-#include <mutex>
 
 #include "FrankaLocal.hpp"
 #include "convertArrayToEigenMatrix.hpp"
@@ -60,6 +60,9 @@ FrankaLocal::FrankaLocal() : Node("franka_teleoperation_local_node"), stop_contr
       std::bind(&FrankaLocal::localStatePublishFrequency, this));  // timer = is necessary!!
 
   local_control_thread_ = std::thread(&FrankaLocal::controlLoop, this);
+
+  msg_.name = {"fr3_joint1", "fr3_joint2", "fr3_joint3", "fr3_joint4",
+               "fr3_joint5", "fr3_joint6", "fr3_joint7"};
 }
 
 FrankaLocal::~FrankaLocal() {
@@ -75,14 +78,12 @@ void FrankaLocal::localStatePublishFrequency() {
   CPU_SET(4, &cpuset4_);
   pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset4_);
   msg_.header.stamp = this->now();
-  msg_.name = {"fr3_joint1", "fr3_joint2", "fr3_joint3", "fr3_joint4",
-               "fr3_joint5", "fr3_joint6", "fr3_joint7"};
   {
     std::lock_guard<std::mutex> lk(robot_state_mutex_);
     msg_.position = std::vector<double>(robotOnlineState_.q.begin(), robotOnlineState_.q.end());
     msg_.velocity = std::vector<double>(robotOnlineState_.dq.begin(), robotOnlineState_.dq.end());
-    msg_.effort =
-        std::vector<double>(robotOnlineState_.tau_J.begin(), robotOnlineState_.tau_J.end());
+    // msg_.effort =
+    //     std::vector<double>(robotOnlineState_.tau_J.begin(), robotOnlineState_.tau_J.end());
   }
 
   joint_state_pub_->publish(msg_);
