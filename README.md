@@ -1,22 +1,44 @@
 # franka_teleoperation
 
-A ROS 2 package for bilateral teleoperation between two Franka Emika robots using Cartesian impedance control. It provides separate nodes for local and remote control loops, each configurable via YAML parameter files.
+A ROS 2 package for teleoperation between two Franka Emika robots using Cartesian impedance control (local side) and joint-space impedance control (remote side). It provides separate nodes for local and remote control loops, each configurable via YAML parameter files.
 
 ---
 
 ## Features
 
-- **Cartesian impedance control** on both local and remote robots  
+- **Impedance control** on both local and remote robots  
 - **Configurable stiffness** and **damping** gains per axis  
 - Real‐time control via **libfranka**  
 - **ROS 2 parameters** loaded from YAML files  
-- Easily run **local**, **remote**, or **combined** executables  
+- Easily run **local**, **remote**  
 
 ---
 
 ## Package Contents
 ```text
-franka_teleoperation/ ├── CMakeLists.txt ├── package.xml ├── README.md ← you are here ├── LICENSE ├── config/ │ ├── local_impedance_params.yaml │ └── remote_impedance_params.yaml ├── include/franka_teleoperation/ │ └── … helper headers … ├── src/ │ ├── franka_teleoperation_cpp.cpp ← combined local + remote │ ├── franka_teleoperation_local_cpp.cpp │ ├── franka_teleoperation_remote_cpp.cpp │ └── helper/… ← utility classes & functions └── .vscode/… ← optional editor settings
+franka_teleoperation/
+├── CMakeLists.txt
+├── package.xml
+├── README.md
+├── config/
+│   ├── local_impedance_params.yaml
+│   └── remote_impedance_params.yaml
+├── launch/                   # (optional) launch files
+├── src/
+│   ├── franka_teleoperation_local_cpp.cpps
+│   ├── franka_teleoperation_remote_cpp.cpp
+│   └── helper/
+│       ├── FrankaLocal.cpp/.hpp
+│       ├── FrankaRemote.cpp/.hpp
+│       ├── convertArrayToEigenMatrix.hpp
+│       ├── convertArrayToEigenVector.hpp
+│       ├── jacobianMatrix.hpp
+│       ├── coriolisTimesDqVector.hpp
+│       ├── orientationErrorByPoses.hpp
+│       ├── posErrorByPoses.hpp
+│       └── jointTorquesSent.hpp
+└── include/
+    └── franka_teleoperation/  # public headers
 ```
 
 ---
@@ -79,7 +101,10 @@ colcon build --packages-select franka_teleoperation --cmake-args -DCMAKE_BUILD_T
 source ~/franka_ws/install/setup.bash
 
 1. Local node
-taskset -c 2,4 chrt --fifo 99 ros2 run franka_teleoperation franka_teleoperation_local_node --ros-args --params-file /home/mobilerobot/franka_ws/src/franka_teleoperation/config/local_impedance_params.yaml
+taskset -c 2,4,5 chrt --fifo 99 ros2 run franka_teleoperation franka_teleoperation_local_node --ros-args --params-file /home/mobilerobot/franka_ws/src/franka_teleoperation/config/local_impedance_params.yaml
 
 2. remote node
 source ~/franka_ws/install/setup.bash
+taskset -c 1,3 chrt --fifo 99 ros2 run franka_teleoperation franka_teleoperation_remote_node --ros-args --params-file /home/mobilerobot/franka_ws/src/franka_teleoperation/config/remote_impedance_params.yaml
+
+
