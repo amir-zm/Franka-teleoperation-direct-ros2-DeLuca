@@ -18,10 +18,10 @@
 #include <atomic>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
-#include <mutex>
 
 #include "FrankaRemote.hpp"
 #include "convertArrayToEigenVector.hpp"
@@ -44,7 +44,7 @@ FrankaRemote::FrankaRemote() : Node("franka_teleoperation_remote_node"), stop_co
   auto damping_raw = this->get_parameter("damping").as_double_array();
   damping_ = Eigen::Map<Eigen::Matrix<double, 7, 1>>(damping_raw.data());
 
-  qos_settings_.reliability(RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT);
+  qos_settings_.reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE);
 
   joint_state_subs_ = this->create_subscription<sensor_msgs::msg::JointState>(
       "local_joint_states", qos_settings_,
@@ -127,8 +127,8 @@ void FrankaRemote::controlLoop() {
     stiffness.diagonal() = stiffness_;
     damping.diagonal() = damping_;
 
-    std::vector<double, std::allocator<double>> msg_position;
-    std::vector<double, std::allocator<double>> msg_velocity;
+    auto msg_position = convertArrayToEigenVector(robot_initial_state.q);
+    auto msg_velocity = convertArrayToEigenVector(robot_initial_state.dq);
 
     // wrapper
     std::function<franka::Torques(const franka::RobotState&, franka::Duration)>
@@ -145,18 +145,15 @@ void FrankaRemote::controlLoop() {
 
       {
         std::lock_guard<std::mutex> subLock(robot_state_sub_mutex_);
-        msg_position = msg_.position;
-        msg_velocity = msg_.velocity;
+        msg_position = Eigen::Map<Eigen::Matrix<double, 7, 1>>(msg_.position.data());
+        msg_velocity = Eigen::Map<Eigen::Matrix<double, 7, 1>>(msg_.velocity.data());
       }
-
-      desired_joints_positions = Eigen::Map<Eigen::Matrix<double, 7, 1>>(msg_position.data());
-      desired_joints_velocities = Eigen::Map<Eigen::Matrix<double, 7, 1>>(msg_velocity.data());
 
       // online joints positions
       online_joints_positions_error =
-          convertArrayToEigenVector<7>(robotOnlineState.q) - desired_joints_positions;
+          convertArrayToEigenVector<7>(robotOnlineState.q) - msg_position;
       online_joints_velocities_error =
-          convertArrayToEigenVector<7>(robotOnlineState.dq) - desired_joints_velocities;
+          convertArrayToEigenVector<7>(robotOnlineState.dq) - msg_velocity;
 
       // robot coriolis (C(q,dq)*dq)
       robot_coriolis_times_dq = coriolisTimesDqVector(robotOnlineState, model);
@@ -169,7 +166,7 @@ void FrankaRemote::controlLoop() {
     };
     // ROS action 1KHZ
     RCLCPP_INFO(this->get_logger(), "Starting remote impedance control loop...");
-    robot.control(impedance_control_callback);
+    robot.control(impedance_control_callback, true);
   } catch (const franka::Exception& e) {
     RCLCPP_ERROR(this->get_logger(), "Franka Exception: %s", e.what());
   }
