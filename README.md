@@ -25,7 +25,7 @@ franka_teleoperation/
 │   └── remote_impedance_params.yaml
 ├── launch/                   # (optional) launch files
 ├── src/
-│   ├── franka_teleoperation_local_cpp.cpps
+│   ├── franka_teleoperation_local_cpp.cpp
 │   ├── franka_teleoperation_remote_cpp.cpp
 │   └── helper/
 │       ├── FrankaLocal.cpp/.hpp
