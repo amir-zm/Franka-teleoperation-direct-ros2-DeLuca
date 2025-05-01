@@ -30,6 +30,8 @@
 #include "convertArrayToEigenMatrix.hpp"
 #include "convertArrayToEigenVector.hpp"
 #include "coriolisTimesDqVector.hpp"
+#include "dJTimesDqCalculator.hpp"
+#include "inertiaMatrix.hpp"
 #include "jacobianMatrix.hpp"
 #include "jointTorquesSent.hpp"
 #include "localCalculatedTorques.hpp"
@@ -42,14 +44,24 @@ FrankaLocal::FrankaLocal() : Node("franka_teleoperation_local_node"), stop_contr
   this->declare_parameter<std::string>("robot_ip", "192.168.1.11");
   robot_ip_ = this->get_parameter("robot_ip").as_string();
 
+  this->declare_parameter<std::vector<double>>("inertia", {0.2, 0.2, 0.2, 0.2, 0.2, 0.2});
+  auto inertia_raw = this->get_parameter("inertia").as_double_array();
+  inertia_vector_ = Eigen::Map<Eigen::Matrix<double, 6, 1>>(inertia_raw.data());
+
   this->declare_parameter<std::vector<double>>("stiffness",
                                                {121.0, 121.0, 121.0, 25.0, 25.0, 25.0});
   auto stiffness_raw = this->get_parameter("stiffness").as_double_array();
-  stiffness_ = Eigen::Map<Eigen::Matrix<double, 6, 1>>(stiffness_raw.data());
+  stiffness_vector_ = Eigen::Map<Eigen::Matrix<double, 6, 1>>(stiffness_raw.data());
 
   this->declare_parameter<std::vector<double>>("damping", {22.0, 22.0, 22.0, 10.0, 10.0, 10.0});
   auto damping_raw = this->get_parameter("damping").as_double_array();
-  damping_ = Eigen::Map<Eigen::Matrix<double, 6, 1>>(damping_raw.data());
+  damping_vector_ = Eigen::Map<Eigen::Matrix<double, 6, 1>>(damping_raw.data());
+
+  inertia_matrix_.diagonal() = inertia_vector_;
+  stiffness_matrix_.diagonal() = stiffness_vector_;
+  damping_matrix_.diagonal() = damping_vector_;
+
+  inertia_matrix_inverse_.diagonal() = inertia_vector_.cwiseInverse();
 
   qos_settings_.reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE);
 
@@ -135,16 +147,19 @@ void FrankaLocal::controlLoop() {
     Eigen::Matrix<double, 6, 1> end_effector_full_pose_error;
     Eigen::Matrix<double, 7, 1> robot_coriolis_times_dq;
     Eigen::Matrix<double, 6, 7> jacobian_matrix;
+    Eigen::Matrix<double, 7, 6> psuedo_jacobian_matrix;
     Eigen::Matrix<double, 7, 6> jacobian_matrix_transpose;
     Eigen::Matrix<double, 6, 1> ee_velocity;
     Eigen::Matrix<double, 7, 1> tau_output;
-
-    // Fill in the diagonal elements
-    Eigen::Matrix<double, 6, 6> stiffness = Eigen::Matrix<double, 6, 6>::Zero();
-    stiffness.diagonal() = stiffness_;
-
-    Eigen::Matrix<double, 6, 6> damping = Eigen::Matrix<double, 6, 6>::Zero();
-    damping.diagonal() = damping_;
+    Eigen::Matrix<double, 6, 7> dot_jacobian_matrix = Eigen::Matrix<double, 6, 7>::Zero();
+    Eigen::Matrix<double, 6, 7> previous_jacobian_matrix = convertArrayToEigenMatrix<6, 7>(
+        model.zeroJacobian(franka::Frame::kEndEffector, robot_initial_state));
+    Eigen::Matrix<double, 6, 7> current_jacobian_matrix = Eigen::Matrix<double, 6, 7>::Zero();
+    Eigen::Matrix<double, 7, 1> joint_velocities;
+    Eigen::Matrix<double, 7, 7> robot_inertia_matrix;
+    Eigen::Matrix<double, 6, 1> dJ_times_dq;
+    Eigen::Matrix<double, 6, 6> JJt;
+    Eigen::Matrix<double, 6, 6> JJt_inverse;
 
     // wrapper
     std::function<franka::Torques(const franka::RobotState&, franka::Duration)>
@@ -163,6 +178,8 @@ void FrankaLocal::controlLoop() {
         std::lock_guard<std::mutex> publishLock(robot_state_pub_mutex_);
         robotOnlineState_ = robotOnlineState;
       }
+      // robot inertia matrix (7*7)
+      robot_inertia_matrix = inertiaMatrix(robotOnlineState, model);
 
       // online end-effector pose (position+orientation)
       end_effector_online_pose.matrix() = convertArrayToEigenMatrix<4, 4>(robotOnlineState.O_T_EE);
@@ -181,23 +198,28 @@ void FrankaLocal::controlLoop() {
       robot_coriolis_times_dq = coriolisTimesDqVector(robotOnlineState, model);
 
       // robot jacobian (J is 6*7)
-      jacobian_matrix = jacobianMatrix(robotOnlineState, model);
-      const Eigen::Matrix<double, 6, 7>& jacobian_matrix_alias = jacobian_matrix;
+      current_jacobian_matrix = jacobianMatrix(robotOnlineState, model);
 
       // jacobian_transpose
-      // instead of using jacobian_matrix.transpose() now JM.transpose(), to avoid copying
-      jacobian_matrix_transpose = jacobian_matrix_alias.transpose();
-      const Eigen::Matrix<double, 7, 6>& jacobian_matrix_transpose_alias =
-          jacobian_matrix_transpose;
-      ;
+      jacobian_matrix_transpose = current_jacobian_matrix.transpose();
 
       // Computing on-line end-effector linear velocity (xd = Jacobian * djoint_velocities)
-      ee_velocity = jacobian_matrix_alias * convertArrayToEigenVector<7>(robotOnlineState.dq);
+      joint_velocities = convertArrayToEigenVector<7>(robotOnlineState.dq);
+      ee_velocity = current_jacobian_matrix * joint_velocities;
+
+      // pseudo-inverse jacobian
+      JJt = current_jacobian_matrix * jacobian_matrix_transpose;
+      auto ldlt = JJt.ldlt();
+      JJt_inverse = ldlt.solve(Eigen::Matrix<double, 6, 6>::Identity());
+      psuedo_jacobian_matrix = jacobian_matrix_transpose * JJt_inverse;
+
+      dJ_times_dq = dJTimesDqCalculator(previous_jacobian_matrix, current_jacobian_matrix,
+                                        dot_jacobian_matrix, joint_velocities);
 
       // calculated torque
-      tau_output =
-          localCalculatedTorques(stiffness, damping, end_effector_full_pose_error, ee_velocity,
-                                 jacobian_matrix_transpose_alias, robot_coriolis_times_dq);
+      tau_output = localCalculatedTorques(inertia_matrix_inverse_, stiffness_matrix_, damping_matrix_, end_effector_full_pose_error,
+          ee_velocity, jacobian_matrix_transpose, psuedo_jacobian_matrix, robot_coriolis_times_dq,
+          robot_inertia_matrix, dJ_times_dq);
 
       return jointTorquesSent(tau_output);
     };

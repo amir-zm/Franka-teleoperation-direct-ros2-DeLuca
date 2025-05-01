@@ -6,15 +6,25 @@
 
 namespace zakerimanesh {
 inline Eigen::Matrix<double, 7, 1> localCalculatedTorques(
-    const Eigen::Matrix<double, 6, 6>& stiffness,
-    const Eigen::Matrix<double, 6, 6>& damping,
+    const Eigen::Matrix<double, 6, 6>& inertia_inverse_matrix_,
+    const Eigen::Matrix<double, 6, 6>& stiffness_matrix_,
+    const Eigen::Matrix<double, 6, 6>& damping_matrix_,
     const Eigen::Matrix<double, 6, 1>& end_effector_full_pose_error,
     const Eigen::Matrix<double, 6, 1>& ee_velocity,
-    const Eigen::Matrix<double, 7, 6>& jacobian_transpose,
-    const Eigen::Matrix<double, 7, 1>& robot_coriolis_times_dq) noexcept {
+    const Eigen::Matrix<double, 7, 6>& jacobian_matrix_transpose,
+    const Eigen::Matrix<double, 7, 6>& psuedo_jacobian_matrix,
+    const Eigen::Matrix<double, 7, 1>& robot_coriolis_times_dq,
+    Eigen::Matrix<double, 7, 7> robot_inertia_matrix,
+    Eigen::Matrix<double, 6, 1>& dJ_times_dq) noexcept {
+  // online joint torques (7 joints)
+  // return jacobian_matrix_transpose * ( -damping_matrix_ * ee_velocity - stiffness_matrix_ *
+  // end_effector_full_pose_error) +
+  //        robot_coriolis_times_dq;
 
   // online joint torques (7 joints)
-  return jacobian_transpose * (-damping * ee_velocity - stiffness * end_effector_full_pose_error) +
+  return robot_inertia_matrix * psuedo_jacobian_matrix *
+             ( - dJ_times_dq - inertia_inverse_matrix_ * damping_matrix_ * ee_velocity -
+              inertia_inverse_matrix_ * stiffness_matrix_ * end_effector_full_pose_error) +
          robot_coriolis_times_dq;
 }
 
