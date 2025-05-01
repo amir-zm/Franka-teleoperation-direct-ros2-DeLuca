@@ -12,6 +12,7 @@
 
 #include <pthread.h>
 #include <sched.h>
+#include <sys/mman.h>
 #include <Eigen/Cholesky>
 #include <Eigen/Dense>
 #include <algorithm>
@@ -38,13 +39,16 @@
 #include "orientationErrorByPoses.hpp"
 #include "posErrorByPoses.hpp"
 #include "rotationErUnifiedAngleAxis.hpp"
+#include "templateClamp.hpp"
 
 namespace zakerimanesh {
 FrankaLocal::FrankaLocal() : Node("franka_teleoperation_local_node"), stop_control_loop_{false} {
+  mlockall(MCL_CURRENT | MCL_FUTURE);
+
   this->declare_parameter<std::string>("robot_ip", "192.168.1.11");
   robot_ip_ = this->get_parameter("robot_ip").as_string();
 
-  this->declare_parameter<std::vector<double>>("inertia", {0.2, 0.2, 0.2, 0.2, 0.2, 0.2});
+  this->declare_parameter<std::vector<double>>("inertia", {0.2, 0.2, 0.2, 0.05, 0.05, 0.05});
   auto inertia_raw = this->get_parameter("inertia").as_double_array();
   inertia_vector_ = Eigen::Map<Eigen::Matrix<double, 6, 1>>(inertia_raw.data());
 
@@ -94,8 +98,7 @@ void FrankaLocal::localStatePublishFrequency() {
     msg_.header.stamp = this->now();
     msg_.position = std::vector<double>(robotOnlineState_.q.begin(), robotOnlineState_.q.end());
     msg_.velocity = std::vector<double>(robotOnlineState_.dq.begin(), robotOnlineState_.dq.end());
-    // msg_.effort =
-    //     std::vector<double>(robotOnlineState_.tau_J.begin(), robotOnlineState_.tau_J.end());
+    msg_.effort = std::vector<double>(tau_output_.begin(), tau_output_.end());
   }
 
   joint_state_pub_->publish(msg_);
@@ -115,8 +118,8 @@ void FrankaLocal::controlLoop() {
 
     franka::Model model = robot.loadModel();
 
-    double torque_thresholds = 80;
-    double force_thresholds = 80;
+    double torque_thresholds = 30;
+    double force_thresholds = 30;
 
     // set collision behavior
     const std::array<double, 7> lower_torque_thresholds_acceleration = {
@@ -146,11 +149,10 @@ void FrankaLocal::controlLoop() {
     Eigen::Affine3d end_effector_online_pose;
     Eigen::Matrix<double, 6, 1> end_effector_full_pose_error;
     Eigen::Matrix<double, 7, 1> robot_coriolis_times_dq;
-    Eigen::Matrix<double, 6, 7> jacobian_matrix;
     Eigen::Matrix<double, 7, 6> psuedo_jacobian_matrix;
     Eigen::Matrix<double, 7, 6> jacobian_matrix_transpose;
+    Eigen::Matrix<double, 7, 6>& jacobian_matrix_transpose_alias = jacobian_matrix_transpose;
     Eigen::Matrix<double, 6, 1> ee_velocity;
-    Eigen::Matrix<double, 7, 1> tau_output;
     Eigen::Matrix<double, 6, 7> dot_jacobian_matrix = Eigen::Matrix<double, 6, 7>::Zero();
     Eigen::Matrix<double, 6, 7> previous_jacobian_matrix = convertArrayToEigenMatrix<6, 7>(
         model.zeroJacobian(franka::Frame::kEndEffector, robot_initial_state));
@@ -160,7 +162,10 @@ void FrankaLocal::controlLoop() {
     Eigen::Matrix<double, 6, 1> dJ_times_dq;
     Eigen::Matrix<double, 6, 6> JJt;
     Eigen::Matrix<double, 6, 6> JJt_inverse;
+    Eigen::Matrix<double, 3, 3> orientation_error_in_base_frame;
 
+    tau_output_ = Eigen::Matrix<double, 7, 1>::Zero();
+    Eigen::Matrix<double, 7, 1> tau_output;
     // wrapper
     std::function<franka::Torques(const franka::RobotState&, franka::Duration)>
         impedance_control_callback;
@@ -173,18 +178,17 @@ void FrankaLocal::controlLoop() {
         // the special MotionFinished return halts the control loop immediately
         return franka::MotionFinished(franka::Torques{{0, 0, 0, 0, 0, 0, 0}});
       }
-      // publishing local joints
-      {
-        std::lock_guard<std::mutex> publishLock(robot_state_pub_mutex_);
-        robotOnlineState_ = robotOnlineState;
-      }
+      // // publishing local joints
+      // {
+      //   std::lock_guard<std::mutex> publishLock(robot_state_pub_mutex_);
+      //   robotOnlineState_ = robotOnlineState;
+      // }
       // robot inertia matrix (7*7)
       robot_inertia_matrix = inertiaMatrix(robotOnlineState, model);
 
       // online end-effector pose (position+orientation)
       end_effector_online_pose.matrix() = convertArrayToEigenMatrix<4, 4>(robotOnlineState.O_T_EE);
-      Eigen::Matrix<double, 3, 3> orientation_error_in_base_frame =
-          end_effector_online_pose.rotation();
+      orientation_error_in_base_frame = end_effector_online_pose.rotation();
 
       // full end-ffector pose error (position+orientation) "the current pose away from the
       // desired"
@@ -208,18 +212,28 @@ void FrankaLocal::controlLoop() {
       ee_velocity = current_jacobian_matrix * joint_velocities;
 
       // pseudo-inverse jacobian
-      JJt = current_jacobian_matrix * jacobian_matrix_transpose;
+      JJt = current_jacobian_matrix * jacobian_matrix_transpose_alias;
       auto ldlt = JJt.ldlt();
       JJt_inverse = ldlt.solve(Eigen::Matrix<double, 6, 6>::Identity());
-      psuedo_jacobian_matrix = jacobian_matrix_transpose * JJt_inverse;
+      psuedo_jacobian_matrix = jacobian_matrix_transpose_alias * JJt_inverse;
 
       dJ_times_dq = dJTimesDqCalculator(previous_jacobian_matrix, current_jacobian_matrix,
                                         dot_jacobian_matrix, joint_velocities);
 
       // calculated torque
-      tau_output = localCalculatedTorques(inertia_matrix_inverse_, stiffness_matrix_, damping_matrix_, end_effector_full_pose_error,
-          ee_velocity, jacobian_matrix_transpose, psuedo_jacobian_matrix, robot_coriolis_times_dq,
-          robot_inertia_matrix, dJ_times_dq);
+      tau_output = localCalculatedTorques(
+          inertia_matrix_inverse_, stiffness_matrix_, damping_matrix_, end_effector_full_pose_error,
+          ee_velocity, jacobian_matrix_transpose_alias, psuedo_jacobian_matrix,
+          robot_coriolis_times_dq, robot_inertia_matrix, dJ_times_dq);
+
+      {
+        std::lock_guard<std::mutex> publishLock(robot_state_pub_mutex_);
+        tau_output_ = tau_output;
+      }
+
+      for (int i = 0; i < 7; ++i) {
+        tau_output[i] = templateClamp<double>(tau_output[i], -30.0, 30.0);
+      }
 
       return jointTorquesSent(tau_output);
     };

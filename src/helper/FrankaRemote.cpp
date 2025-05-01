@@ -35,7 +35,7 @@ FrankaRemote::FrankaRemote() : Node("franka_teleoperation_remote_node"), stop_co
   robot_ip_ = this->get_parameter("robot_ip").as_string();
 
   this->declare_parameter<std::vector<double>>("stiffness",
-                                               {81.0, 81.0, 81.0, 81.0, 81.0, 81.0, 81.0});
+                                               {25.0, 25.0, 25.0, 25.0, 25.0, 25.0, 25.0});
   auto stiffness_raw = this->get_parameter("stiffness").as_double_array();
   stiffness_ = Eigen::Map<Eigen::Matrix<double, 7, 1>>(stiffness_raw.data());
 
@@ -89,8 +89,9 @@ void FrankaRemote::controlLoop() {
     franka::Robot robot(robot_ip_);
     setDefaultBehavior(robot);
     franka::Model model = robot.loadModel();
-    double torque_thresholds = 80;
-    double force_thresholds = 80;
+
+    double torque_thresholds = 50;
+    double force_thresholds = 50;
 
     // set collision behavior
     const std::array<double, 7> lower_torque_thresholds_acceleration = {

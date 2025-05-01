@@ -3,19 +3,19 @@
 
 #include <franka/robot_state.h>
 
-#include <rclcpp/rclcpp.hpp>
-#include <rclcpp/qos.hpp>
 #include <Eigen/Dense>
 #include <atomic>
-#include <string>
 #include <memory>
-#include <thread>
-#include <sensor_msgs/msg/joint_state.hpp>
 #include <mutex>
+#include <rclcpp/qos.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/joint_state.hpp>
+#include <string>
+#include <thread>
 
 namespace zakerimanesh {
 class FrankaLocal : public rclcpp::Node {
-  public:
+ public:
   FrankaLocal();
   ~FrankaLocal();
 
@@ -25,11 +25,11 @@ class FrankaLocal : public rclcpp::Node {
 
   std::atomic<bool> stop_control_loop_;
 
-  rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub_;  
+  rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub_;
   rclcpp::TimerBase::SharedPtr timer_;
   sensor_msgs::msg::JointState msg_;
 
-  franka::RobotState robotOnlineState_; 
+  franka::RobotState robotOnlineState_;
 
   rclcpp::QoS qos_settings_{5};
 
@@ -43,6 +43,8 @@ class FrankaLocal : public rclcpp::Node {
   Eigen::Matrix<double, 6, 6> stiffness_matrix_ = Eigen::Matrix<double, 6, 6>::Zero();
   Eigen::Matrix<double, 6, 6> damping_matrix_ = Eigen::Matrix<double, 6, 6>::Zero();
   Eigen::Matrix<double, 6, 6> inertia_matrix_inverse_ = Eigen::Matrix<double, 6, 6>::Zero();
+
+  Eigen::Matrix<double, 7, 1> tau_output_;
 
   cpu_set_t cpuset2_;
   cpu_set_t cpuset4_;
