@@ -16,6 +16,8 @@
 namespace zakerimanesh {
 class FrankaLocal : public rclcpp::Node {
  public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
   FrankaLocal();
   ~FrankaLocal();
 

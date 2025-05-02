@@ -3,18 +3,20 @@
 
 #include <franka/robot_state.h>
 
-#include <rclcpp/rclcpp.hpp>
 #include <Eigen/Dense>
 #include <atomic>
-#include <string>
 #include <memory>
-#include <thread>
-#include <sensor_msgs/msg/joint_state.hpp>
 #include <mutex>
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/joint_state.hpp>
+#include <string>
+#include <thread>
 
 namespace zakerimanesh {
 class FrankaRemote : public rclcpp::Node {
-  public:
+ public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
   FrankaRemote();
   ~FrankaRemote();
 
@@ -25,7 +27,7 @@ class FrankaRemote : public rclcpp::Node {
   std::string robot_ip_;
   Eigen::Matrix<double, 7, 1> stiffness_;
   Eigen::Matrix<double, 7, 1> damping_;
-  rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_subs_;  
+  rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_subs_;
   rclcpp::TimerBase::SharedPtr timer_;
   sensor_msgs::msg::JointState msg_;
   franka::RobotState robotRemoteState_;

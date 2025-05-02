@@ -15,6 +15,7 @@
 #include <sys/mman.h>
 #include <Eigen/Core>
 #include <Eigen/Dense>
+#include <Eigen/Cholesky>
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -48,7 +49,7 @@ FrankaLocal::FrankaLocal() : Node("franka_teleoperation_local_node"), stop_contr
   this->declare_parameter<std::string>("robot_ip", "192.168.1.11");
   robot_ip_ = this->get_parameter("robot_ip").as_string();
 
-  this->declare_parameter<std::vector<double>>("inertia", {0.2, 0.2, 0.2, 0.05, 0.05, 0.05});
+  this->declare_parameter<std::vector<double>>("inertia", {1.0, 1.0, 1.0, 1.0, 1.0, 1.0});
   auto inertia_raw = this->get_parameter("inertia").as_double_array();
   inertia_vector_ = Eigen::Map<Eigen::Matrix<double, 6, 1>>(inertia_raw.data());
 
@@ -61,7 +62,7 @@ FrankaLocal::FrankaLocal() : Node("franka_teleoperation_local_node"), stop_contr
   auto damping_raw = this->get_parameter("damping").as_double_array();
   damping_vector_ = Eigen::Map<Eigen::Matrix<double, 6, 1>>(damping_raw.data());
 
-  inertia_matrix_.diagonal() = inertia_vector_;
+  this->inertia_matrix_.diagonal() = inertia_vector_;
   stiffness_matrix_.diagonal() = stiffness_vector_;
   damping_matrix_.diagonal() = damping_vector_;
 
@@ -93,10 +94,10 @@ FrankaLocal::~FrankaLocal() {
 }
 
 void FrankaLocal::localStatePublishFrequency() {
-  // Pin this thread to core 4
-  CPU_ZERO(&cpuset4_);
-  CPU_SET(4, &cpuset4_);
-  pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset4_);
+  // // Pin this thread to core 4
+  // CPU_ZERO(&cpuset4_);
+  // CPU_SET(4, &cpuset4_);
+  // pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset4_);
   {
     std::lock_guard<std::mutex> publishLock(robot_state_pub_mutex_);
     msg_.header.stamp = this->now();
@@ -109,10 +110,12 @@ void FrankaLocal::localStatePublishFrequency() {
 }
 
 void FrankaLocal::controlLoop() {
-  // Pin this thread to core 2
-  CPU_ZERO(&cpuset2_);
-  CPU_SET(2, &cpuset2_);
-  pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset2_);
+  // struct sched_param p{ .sched_priority = 99};
+  // // Pin this thread to core 2
+  // CPU_ZERO(&cpuset2_);
+  // CPU_SET(2, &cpuset2_);
+  // pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset2_);
+  // pthread_setschedparam(pthread_self(), SCHED_FIFO, &p);
 
   RCLCPP_INFO(this->get_logger(), "Connecting to franka local robot ...");
 
@@ -165,10 +168,9 @@ void FrankaLocal::controlLoop() {
     Eigen::Matrix<double, 7, 7> robot_inertia_matrix;
     Eigen::Matrix<double, 6, 1> dJ_times_dq;
     Eigen::Matrix<double, 6, 6> JJt;
-    Eigen::Matrix<double, 6, 6> JJt_temp;
     Eigen::Matrix<double, 6, 7> JJt_inverse_J;
     Eigen::Matrix<double, 3, 3> orientation_error_in_base_frame;
-    Eigen::LDLT<Eigen::Matrix<double,6,6>> LDLT_instance;
+    Eigen::LDLT<Eigen::Matrix<double, 6, 6>> LDLT_instance;
     Eigen::Matrix<double, 6, 6> identity_matrix_6by6 = Eigen::Matrix<double, 6, 6>::Identity();
 
     tau_output_ = Eigen::Matrix<double, 7, 1>::Zero();
@@ -216,9 +218,8 @@ void FrankaLocal::controlLoop() {
       ee_velocity = current_jacobian_matrix * joint_velocities;
 
       // pseudo-inverse jacobian
-      JJt_temp = current_jacobian_matrix * jacobian_matrix_transpose_alias;
-      JJt_temp = 0.5 * (JJt_temp + JJt_temp.transpose());
-      JJt.noalias() = JJt_temp;
+      JJt = current_jacobian_matrix * jacobian_matrix_transpose_alias;
+      JJt = 0.5 * (JJt + JJt.transpose());
       LDLT_instance.compute(JJt.selfadjointView<Eigen::Lower>());
       assert(LDLT_instance.info() == Eigen::Success);
       JJt_inverse_J = LDLT_instance.solve(current_jacobian_matrix);
