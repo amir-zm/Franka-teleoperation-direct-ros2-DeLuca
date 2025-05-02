@@ -14,8 +14,8 @@ inline Eigen::Matrix<double, 7, 1> localCalculatedTorques(
     const Eigen::Matrix<double, 7, 6>& jacobian_matrix_transpose,
     const Eigen::Matrix<double, 7, 6>& psuedo_jacobian_matrix,
     const Eigen::Matrix<double, 7, 1>& robot_coriolis_times_dq,
-    Eigen::Matrix<double, 7, 7> robot_inertia_matrix,
-    Eigen::Matrix<double, 6, 1>& dJ_times_dq) noexcept {
+    const Eigen::Matrix<double, 7, 7>& robot_inertia_matrix,
+    const Eigen::Matrix<double, 6, 1>& dJ_times_dq) noexcept {
   // online joint torques (7 joints)
   return robot_inertia_matrix * psuedo_jacobian_matrix *
              (- dJ_times_dq - inertia_inverse_matrix_ * damping_matrix_ * ee_velocity -

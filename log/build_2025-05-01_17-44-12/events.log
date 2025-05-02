@@ -1,0 +1,66 @@
+[0.000000] (-) TimerEvent: {}
+[0.000270] (franka_teleoperation) JobQueued: {'identifier': 'franka_teleoperation', 'dependencies': OrderedDict()}
+[0.000589] (franka_teleoperation) JobStarted: {'identifier': 'franka_teleoperation'}
+[0.004895] (franka_teleoperation) JobProgress: {'identifier': 'franka_teleoperation', 'progress': 'cmake'}
+[0.005079] (franka_teleoperation) Command: {'cmd': ['/usr/bin/cmake', '/home/mobilerobot/franka_ws/src/franka_teleoperation', '-DCMAKE_BUILD_TYPE=Release', '-DAMENT_CMAKE_SYMLINK_INSTALL=1', '-DCMAKE_INSTALL_PREFIX=/home/mobilerobot/franka_ws/src/franka_teleoperation/install/franka_teleoperation'], 'cwd': '/home/mobilerobot/franka_ws/src/franka_teleoperation/build/franka_teleoperation', 'env': OrderedDict([('SUDO_GID', '1000'), ('LESSOPEN', '| /usr/bin/lesspipe %s'), ('MAIL', '/var/mail/root'), ('LANGUAGE', 'en_CA:en'), ('USER', 'root'), ('SHLVL', '1'), ('LD_LIBRARY_PATH', '/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib'), ('HOME', '/root'), ('CONDA_SHLVL', '0'), ('ROS_PYTHON_VERSION', '3'), ('PS1', '\\[\\e]0;\\u@\\h: \\w\\a\\]${debian_chroot:+($debian_chroot)}\\u@\\h:\\w\\$'), ('COLORTERM', 'truecolor'), ('_CE_M', ''), ('SUDO_UID', '1000'), ('ROS_DISTRO', 'humble'), ('LOGNAME', 'root'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('TERM', 'xterm-256color'), ('_CE_CONDA', ''), ('ROS_LOCALHOST_ONLY', '0'), ('PATH', '/opt/ros/humble/bin:/home/mobilerobot/anaconda3/condabin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin'), ('DISPLAY', ':1'), ('LANG', 'en_CA.UTF-8'), ('XDG_CURRENT_DESKTOP', 'Unity'), ('XAUTHORITY', '/run/user/1000/gdm/Xauthority'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('SUDO_COMMAND', '/usr/bin/su'), ('AMENT_PREFIX_PATH', '/opt/ros/humble'), ('CONDA_PYTHON_EXE', '/home/mobilerobot/anaconda3/bin/python'), ('SHELL', '/bin/bash'), ('SUDO_USER', 'mobilerobot'), ('LESSCLOSE', '/usr/bin/lesspipe %s %s'), ('PWD', '/home/mobilerobot/franka_ws/src/franka_teleoperation/build/franka_teleoperation'), ('CONDA_EXE', '/home/mobilerobot/anaconda3/bin/conda'), ('PYTHONPATH', '/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages'), ('COLCON', '1'), ('CMAKE_PREFIX_PATH', '/opt/ros/humble')]), 'shell': False}
+[0.091981] (franka_teleoperation) StdoutLine: {'line': b'-- The C compiler identification is GNU 11.4.0\n'}
+[0.100148] (-) TimerEvent: {}
+[0.187211] (franka_teleoperation) StdoutLine: {'line': b'-- The CXX compiler identification is GNU 11.4.0\n'}
+[0.193050] (franka_teleoperation) StdoutLine: {'line': b'-- Detecting C compiler ABI info\n'}
+[0.200300] (-) TimerEvent: {}
+[0.242553] (franka_teleoperation) StdoutLine: {'line': b'-- Detecting C compiler ABI info - done\n'}
+[0.246958] (franka_teleoperation) StdoutLine: {'line': b'-- Check for working C compiler: /usr/bin/cc - skipped\n'}
+[0.247273] (franka_teleoperation) StdoutLine: {'line': b'-- Detecting C compile features\n'}
+[0.247643] (franka_teleoperation) StdoutLine: {'line': b'-- Detecting C compile features - done\n'}
+[0.249810] (franka_teleoperation) StdoutLine: {'line': b'-- Detecting CXX compiler ABI info\n'}
+[0.300576] (-) TimerEvent: {}
+[0.314145] (franka_teleoperation) StdoutLine: {'line': b'-- Detecting CXX compiler ABI info - done\n'}
+[0.318941] (franka_teleoperation) StdoutLine: {'line': b'-- Check for working CXX compiler: /usr/bin/c++ - skipped\n'}
+[0.319083] (franka_teleoperation) StdoutLine: {'line': b'-- Detecting CXX compile features\n'}
+[0.319500] (franka_teleoperation) StdoutLine: {'line': b'-- Detecting CXX compile features - done\n'}
+[0.322167] (franka_teleoperation) StdoutLine: {'line': b'-- Found ament_cmake: 1.3.11 (/opt/ros/humble/share/ament_cmake/cmake)\n'}
+[0.400826] (-) TimerEvent: {}
+[0.406154] (franka_teleoperation) StdoutLine: {'line': b'-- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter \n'}
+[0.445432] (franka_teleoperation) StdoutLine: {'line': b'-- Override CMake install command with custom implementation using symlinks instead of copying resources\n'}
+[0.460166] (franka_teleoperation) StdoutLine: {'line': b'-- Found rclcpp: 16.0.12 (/opt/ros/humble/share/rclcpp/cmake)\n'}
+[0.484830] (franka_teleoperation) StdoutLine: {'line': b'-- Found rosidl_generator_c: 3.1.6 (/opt/ros/humble/share/rosidl_generator_c/cmake)\n'}
+[0.487327] (franka_teleoperation) StdoutLine: {'line': b'-- Found rosidl_adapter: 3.1.6 (/opt/ros/humble/share/rosidl_adapter/cmake)\n'}
+[0.492308] (franka_teleoperation) StdoutLine: {'line': b'-- Found rosidl_generator_cpp: 3.1.6 (/opt/ros/humble/share/rosidl_generator_cpp/cmake)\n'}
+[0.499148] (franka_teleoperation) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c\n'}
+[0.500945] (-) TimerEvent: {}
+[0.508187] (franka_teleoperation) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp\n'}
+[0.534613] (franka_teleoperation) StdoutLine: {'line': b'-- Found rmw_implementation_cmake: 6.1.2 (/opt/ros/humble/share/rmw_implementation_cmake/cmake)\n'}
+[0.536005] (franka_teleoperation) StdoutLine: {'line': b'-- Found rmw_fastrtps_cpp: 6.2.7 (/opt/ros/humble/share/rmw_fastrtps_cpp/cmake)\n'}
+[0.584484] (franka_teleoperation) StdoutLine: {'line': b'-- Found OpenSSL: /usr/lib/x86_64-linux-gnu/libcrypto.so (found version "3.0.2")  \n'}
+[0.601070] (-) TimerEvent: {}
+[0.601290] (franka_teleoperation) StdoutLine: {'line': b'-- Found FastRTPS: /opt/ros/humble/include  \n'}
+[0.628725] (franka_teleoperation) StdoutLine: {'line': b"-- Using RMW implementation 'rmw_fastrtps_cpp' as default\n"}
+[0.634143] (franka_teleoperation) StdoutLine: {'line': b'-- Looking for pthread.h\n'}
+[0.694254] (franka_teleoperation) StdoutLine: {'line': b'-- Looking for pthread.h - found\n'}
+[0.694466] (franka_teleoperation) StdoutLine: {'line': b'-- Performing Test CMAKE_HAVE_LIBC_PTHREAD\n'}
+[0.701219] (-) TimerEvent: {}
+[0.771675] (franka_teleoperation) StdoutLine: {'line': b'-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success\n'}
+[0.772385] (franka_teleoperation) StdoutLine: {'line': b'-- Found Threads: TRUE  \n'}
+[0.801380] (-) TimerEvent: {}
+[0.812720] (franka_teleoperation) StderrLine: {'line': b'\x1b[31mCMake Error at CMakeLists.txt:13 (find_package):\n'}
+[0.812843] (franka_teleoperation) StderrLine: {'line': b'  By not providing "Findfranka_msgs.cmake" in CMAKE_MODULE_PATH this project\n'}
+[0.812890] (franka_teleoperation) StderrLine: {'line': b'  has asked CMake to find a package configuration file provided by\n'}
+[0.812930] (franka_teleoperation) StderrLine: {'line': b'  "franka_msgs", but CMake did not find one.\n'}
+[0.812971] (franka_teleoperation) StderrLine: {'line': b'\n'}
+[0.813007] (franka_teleoperation) StderrLine: {'line': b'  Could not find a package configuration file provided by "franka_msgs" with\n'}
+[0.813043] (franka_teleoperation) StderrLine: {'line': b'  any of the following names:\n'}
+[0.813079] (franka_teleoperation) StderrLine: {'line': b'\n'}
+[0.813115] (franka_teleoperation) StderrLine: {'line': b'    franka_msgsConfig.cmake\n'}
+[0.813150] (franka_teleoperation) StderrLine: {'line': b'    franka_msgs-config.cmake\n'}
+[0.813185] (franka_teleoperation) StderrLine: {'line': b'\n'}
+[0.813219] (franka_teleoperation) StderrLine: {'line': b'  Add the installation prefix of "franka_msgs" to CMAKE_PREFIX_PATH or set\n'}
+[0.813253] (franka_teleoperation) StderrLine: {'line': b'  "franka_msgs_DIR" to a directory containing one of the above files.  If\n'}
+[0.813287] (franka_teleoperation) StderrLine: {'line': b'  "franka_msgs" provides a separate development package or SDK, be sure it\n'}
+[0.813320] (franka_teleoperation) StderrLine: {'line': b'  has been installed.\n'}
+[0.813353] (franka_teleoperation) StderrLine: {'line': b'\n'}
+[0.813386] (franka_teleoperation) StderrLine: {'line': b'\x1b[0m\n'}
+[0.813419] (franka_teleoperation) StdoutLine: {'line': b'-- Configuring incomplete, errors occurred!\n'}
+[0.813462] (franka_teleoperation) StdoutLine: {'line': b'See also "/home/mobilerobot/franka_ws/src/franka_teleoperation/build/franka_teleoperation/CMakeFiles/CMakeOutput.log".\n'}
+[0.819201] (franka_teleoperation) CommandEnded: {'returncode': 1}
+[0.831528] (franka_teleoperation) JobEnded: {'identifier': 'franka_teleoperation', 'rc': 1}
+[0.842149] (-) EventReactorShutdown: {}

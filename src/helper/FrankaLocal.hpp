@@ -1,5 +1,5 @@
-#ifndef ZAKERIMANESH_Franka_Local_HPP
-#define ZAKERIMANESH_Franka_Local_HPP
+#ifndef ZAKERIMANESH_FRANKA_LOCAL_HPP
+#define ZAKERIMANESH_FRANKA_LOCAL_HPP
 
 #include <franka/robot_state.h>
 
@@ -54,4 +54,4 @@ class FrankaLocal : public rclcpp::Node {
 };
 }  // namespace zakerimanesh
 
-#endif  // ZAKERIMANESH_Franka_Local_HPP
+#endif  // ZAKERIMANESH_FRANKA_LOCAL_HPP

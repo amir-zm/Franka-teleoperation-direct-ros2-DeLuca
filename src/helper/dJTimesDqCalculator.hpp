@@ -12,10 +12,11 @@
 namespace zakerimanesh {
 inline Eigen::Matrix<double, 6, 1> dJTimesDqCalculator(
     Eigen::Matrix<double, 6, 7>& previous_jacobian_matrix,
-    Eigen::Matrix<double, 6, 7>& current_jacobian_matrix,
+    const Eigen::Matrix<double, 6, 7>& current_jacobian_matrix,
     Eigen::Matrix<double, 6, 7>& dot_jacobian_matrix,
-    Eigen::Matrix<double, 7, 1>& joint_velocities) noexcept {
-  double inv_dt = 1000;
+    const Eigen::Matrix<double, 7, 1>& joint_velocities,
+    const franka::Duration& duration) noexcept {
+  double inv_dt = 1 / duration.toSec();
   dot_jacobian_matrix = inv_dt * (current_jacobian_matrix - previous_jacobian_matrix);
 
   // store for next iteration

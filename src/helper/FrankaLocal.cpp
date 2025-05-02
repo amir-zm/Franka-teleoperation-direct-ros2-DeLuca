@@ -13,7 +13,7 @@
 #include <pthread.h>
 #include <sched.h>
 #include <sys/mman.h>
-#include <Eigen/Cholesky>
+#include <Eigen/Core>
 #include <Eigen/Dense>
 #include <algorithm>
 #include <array>
@@ -79,6 +79,10 @@ FrankaLocal::FrankaLocal() : Node("franka_teleoperation_local_node"), stop_contr
 
   msg_.name = {"fr3_joint1", "fr3_joint2", "fr3_joint3", "fr3_joint4",
                "fr3_joint5", "fr3_joint6", "fr3_joint7"};
+
+  msg_.position.resize(7);
+  msg_.velocity.resize(7);
+  msg_.effort.resize(7);
 }
 
 FrankaLocal::~FrankaLocal() {
@@ -96,9 +100,9 @@ void FrankaLocal::localStatePublishFrequency() {
   {
     std::lock_guard<std::mutex> publishLock(robot_state_pub_mutex_);
     msg_.header.stamp = this->now();
-    msg_.position = std::vector<double>(robotOnlineState_.q.begin(), robotOnlineState_.q.end());
-    msg_.velocity = std::vector<double>(robotOnlineState_.dq.begin(), robotOnlineState_.dq.end());
-    msg_.effort = std::vector<double>(tau_output_.begin(), tau_output_.end());
+    std::copy(robotOnlineState_.q.begin(), robotOnlineState_.q.end(), msg_.position.begin());
+    std::copy(robotOnlineState_.dq.begin(), robotOnlineState_.dq.end(), msg_.velocity.begin());
+    std::copy(tau_output_.begin(), tau_output_.end(), msg_.effort.begin());
   }
 
   joint_state_pub_->publish(msg_);
@@ -161,8 +165,11 @@ void FrankaLocal::controlLoop() {
     Eigen::Matrix<double, 7, 7> robot_inertia_matrix;
     Eigen::Matrix<double, 6, 1> dJ_times_dq;
     Eigen::Matrix<double, 6, 6> JJt;
-    Eigen::Matrix<double, 6, 6> JJt_inverse;
+    Eigen::Matrix<double, 6, 6> JJt_temp;
+    Eigen::Matrix<double, 6, 7> JJt_inverse_J;
     Eigen::Matrix<double, 3, 3> orientation_error_in_base_frame;
+    Eigen::LDLT<Eigen::Matrix<double,6,6>> LDLT_instance;
+    Eigen::Matrix<double, 6, 6> identity_matrix_6by6 = Eigen::Matrix<double, 6, 6>::Identity();
 
     tau_output_ = Eigen::Matrix<double, 7, 1>::Zero();
     Eigen::Matrix<double, 7, 1> tau_output;
@@ -173,15 +180,12 @@ void FrankaLocal::controlLoop() {
     RCLCPP_INFO(this->get_logger(), "local control loop ...");
 
     impedance_control_callback = [&](const franka::RobotState& robotOnlineState,
-                                     franka::Duration /*duration*/) -> franka::Torques {
+                                     franka::Duration duration) -> franka::Torques {
       if (stop_control_loop_) {
         // the special MotionFinished return halts the control loop immediately
         return franka::MotionFinished(franka::Torques{{0, 0, 0, 0, 0, 0, 0}});
       }
-      // // publishing local joints
-      // {
-      //   std::lock_guard<std::mutex> publishLock(robot_state_pub_mutex_);
-      //   robotOnlineState_ = robotOnlineState;
+
       // }
       // robot inertia matrix (7*7)
       robot_inertia_matrix = inertiaMatrix(robotOnlineState, model);
@@ -212,13 +216,16 @@ void FrankaLocal::controlLoop() {
       ee_velocity = current_jacobian_matrix * joint_velocities;
 
       // pseudo-inverse jacobian
-      JJt = current_jacobian_matrix * jacobian_matrix_transpose_alias;
-      auto ldlt = JJt.ldlt();
-      JJt_inverse = ldlt.solve(Eigen::Matrix<double, 6, 6>::Identity());
-      psuedo_jacobian_matrix = jacobian_matrix_transpose_alias * JJt_inverse;
+      JJt_temp = current_jacobian_matrix * jacobian_matrix_transpose_alias;
+      JJt_temp = 0.5 * (JJt_temp + JJt_temp.transpose());
+      JJt.noalias() = JJt_temp;
+      LDLT_instance.compute(JJt.selfadjointView<Eigen::Lower>());
+      assert(LDLT_instance.info() == Eigen::Success);
+      JJt_inverse_J = LDLT_instance.solve(current_jacobian_matrix);
+      psuedo_jacobian_matrix = JJt_inverse_J.transpose();
 
       dJ_times_dq = dJTimesDqCalculator(previous_jacobian_matrix, current_jacobian_matrix,
-                                        dot_jacobian_matrix, joint_velocities);
+                                        dot_jacobian_matrix, joint_velocities, duration);
 
       // calculated torque
       tau_output = localCalculatedTorques(
@@ -229,6 +236,7 @@ void FrankaLocal::controlLoop() {
       {
         std::lock_guard<std::mutex> publishLock(robot_state_pub_mutex_);
         tau_output_ = tau_output;
+        robotOnlineState_ = robotOnlineState;
       }
 
       for (int i = 0; i < 7; ++i) {
