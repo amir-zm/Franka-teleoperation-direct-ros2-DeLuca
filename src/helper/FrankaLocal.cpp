@@ -70,12 +70,6 @@ FrankaLocal::FrankaLocal() : Node("franka_teleoperation_local_node"), stop_contr
 
   qos_settings_.reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE);
 
-  joint_state_pub_ =
-      this->create_publisher<sensor_msgs::msg::JointState>("local_joint_states", qos_settings_);
-  timer_ = this->create_wall_timer(
-      std::chrono::milliseconds(1),
-      std::bind(&FrankaLocal::localStatePublishFrequency, this));  // timer = is necessary!!
-
   local_control_thread_ = std::thread(&FrankaLocal::controlLoop, this);
 
   msg_.name = {"fr3_joint1", "fr3_joint2", "fr3_joint3", "fr3_joint4",
@@ -84,6 +78,12 @@ FrankaLocal::FrankaLocal() : Node("franka_teleoperation_local_node"), stop_contr
   msg_.position.resize(7);
   msg_.velocity.resize(7);
   msg_.effort.resize(7);
+
+  joint_state_pub_ =
+      this->create_publisher<sensor_msgs::msg::JointState>("local_joint_states", qos_settings_);
+  timer_ = this->create_wall_timer(
+      std::chrono::milliseconds(1),
+      std::bind(&FrankaLocal::localStatePublishFrequency, this));  // timer = is necessary!!
 }
 
 FrankaLocal::~FrankaLocal() {
@@ -103,7 +103,6 @@ void FrankaLocal::localStatePublishFrequency() {
     msg_.header.stamp = this->now();
     std::copy(robotOnlineState_.q.begin(), robotOnlineState_.q.end(), msg_.position.begin());
     std::copy(robotOnlineState_.dq.begin(), robotOnlineState_.dq.end(), msg_.velocity.begin());
-    std::copy(tau_output_.begin(), tau_output_.end(), msg_.effort.begin());
   }
 
   joint_state_pub_->publish(msg_);
@@ -172,8 +171,6 @@ void FrankaLocal::controlLoop() {
     Eigen::Matrix<double, 3, 3> orientation_error_in_base_frame;
     Eigen::LDLT<Eigen::Matrix<double, 6, 6>> LDLT_instance;
     Eigen::Matrix<double, 6, 6> identity_matrix_6by6 = Eigen::Matrix<double, 6, 6>::Identity();
-
-    tau_output_ = Eigen::Matrix<double, 7, 1>::Zero();
     Eigen::Matrix<double, 7, 1> tau_output;
     // wrapper
     std::function<franka::Torques(const franka::RobotState&, franka::Duration)>
@@ -236,12 +233,7 @@ void FrankaLocal::controlLoop() {
 
       {
         std::lock_guard<std::mutex> publishLock(robot_state_pub_mutex_);
-        tau_output_ = tau_output;
         robotOnlineState_ = robotOnlineState;
-      }
-
-      for (int i = 0; i < 7; ++i) {
-        tau_output[i] = templateClamp<double>(tau_output[i], -30.0, 30.0);
       }
 
       return jointTorquesSent(tau_output);

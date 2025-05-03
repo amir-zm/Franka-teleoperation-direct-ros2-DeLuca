@@ -23,6 +23,7 @@ class FrankaLocal : public rclcpp::Node {
 
  private:
   std::mutex robot_state_pub_mutex_;
+  std::thread local_publish_thread_;
   std::thread local_control_thread_;
 
   std::atomic<bool> stop_control_loop_;
@@ -45,8 +46,6 @@ class FrankaLocal : public rclcpp::Node {
   Eigen::Matrix<double, 6, 6> stiffness_matrix_ = Eigen::Matrix<double, 6, 6>::Zero();
   Eigen::Matrix<double, 6, 6> damping_matrix_ = Eigen::Matrix<double, 6, 6>::Zero();
   Eigen::Matrix<double, 6, 6> inertia_matrix_inverse_ = Eigen::Matrix<double, 6, 6>::Zero();
-
-  Eigen::Matrix<double, 7, 1> tau_output_;
 
   cpu_set_t cpuset2_;
   cpu_set_t cpuset4_;
