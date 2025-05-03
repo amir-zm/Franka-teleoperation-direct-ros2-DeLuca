@@ -1,0 +1,39 @@
+# Colcon build artifacts
+build/
+install/
+log/
+
+# CMake files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# Compiled object files and libraries
+*.o
+*.obj
+*.so
+*.a
+*.lo
+*.la
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# IDE settings
+.vscode/
+.idea/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Swap & backup files
+*~
+*.swp
+*.bak
+
+# Log files
+*.log
