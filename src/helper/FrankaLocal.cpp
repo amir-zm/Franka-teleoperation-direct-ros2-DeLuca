@@ -77,7 +77,7 @@ FrankaLocal::FrankaLocal() : Node("franka_teleoperation_local_node"), stop_contr
 
   msg_.position.resize(7);
   msg_.velocity.resize(7);
-  msg_.effort.resize(7);
+  // msg_.effort.resize(7);
 
   joint_state_pub_ =
       this->create_publisher<sensor_msgs::msg::JointState>("local_joint_states", qos_settings_);

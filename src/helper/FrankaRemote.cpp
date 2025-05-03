@@ -46,14 +46,18 @@ FrankaRemote::FrankaRemote() : Node("franka_teleoperation_remote_node"), stop_co
 
   qos_settings_.reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE);
 
+  remote_control_thread_ = std::thread(&FrankaRemote::controlLoop, this);
+
   joint_state_subs_ = this->create_subscription<sensor_msgs::msg::JointState>(
       "local_joint_states", qos_settings_,
       std::bind(&FrankaRemote::remoteStateSubscription, this, std::placeholders::_1));
 
-  remote_control_thread_ = std::thread(&FrankaRemote::controlLoop, this);
-
   msg_.name = {"remote_fr3_joint1", "remote_fr3_joint2", "remote_fr3_joint3", "remote_fr3_joint4",
                "remote_fr3_joint5", "remote_fr3_joint6", "remote_fr3_joint7"};
+
+  msg_.position.resize(7);
+  msg_.velocity.resize(7);
+  // msg_.effort.resize(7);
 }
 
 FrankaRemote::~FrankaRemote() {
@@ -64,24 +68,24 @@ FrankaRemote::~FrankaRemote() {
 }
 
 void FrankaRemote::remoteStateSubscription(const sensor_msgs::msg::JointState msg) {
-  // Pin this thread to core 1
-  cpu_set_t cpuset1;
-  CPU_ZERO(&cpuset1);
-  CPU_SET(1, &cpuset1);
-  pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset1);
+  // // Pin this thread to core 1
+  // cpu_set_t cpuset1;
+  // CPU_ZERO(&cpuset1);
+  // CPU_SET(1, &cpuset1);
+  // pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset1);
   {
     std::lock_guard<std::mutex> subLock(robot_state_sub_mutex_);
     msg_.header.stamp = this->now();
-    msg_.position = msg.position;
-    msg_.velocity = msg.velocity;
+    std::copy(msg.position.begin(), msg.position.end(), msg_.position.begin());
+    std::copy(msg.velocity.begin(), msg.velocity.end(), msg_.velocity.begin());
   }
 }
 
 void FrankaRemote::controlLoop() {
-  CPU_ZERO(&cpuset3_);
-  CPU_SET(3, &cpuset3_);
-  // Pin this thread to core 3
-  pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset3_);
+  // CPU_ZERO(&cpuset3_);
+  // CPU_SET(3, &cpuset3_);
+  // // Pin this thread to core 3
+  // pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset3_);
 
   RCLCPP_INFO(this->get_logger(), "Connecting to franka remote robot ...");
 
@@ -90,8 +94,8 @@ void FrankaRemote::controlLoop() {
     setDefaultBehavior(robot);
     franka::Model model = robot.loadModel();
 
-    double torque_thresholds = 50;
-    double force_thresholds = 50;
+    double torque_thresholds = 30;
+    double force_thresholds = 30;
 
     // set collision behavior
     const std::array<double, 7> lower_torque_thresholds_acceleration = {
@@ -128,9 +132,6 @@ void FrankaRemote::controlLoop() {
     stiffness.diagonal() = stiffness_;
     damping.diagonal() = damping_;
 
-    auto msg_position = convertArrayToEigenVector(robot_initial_state.q);
-    auto msg_velocity = convertArrayToEigenVector(robot_initial_state.dq);
-
     // wrapper
     std::function<franka::Torques(const franka::RobotState&, franka::Duration)>
         impedance_control_callback;
@@ -146,15 +147,15 @@ void FrankaRemote::controlLoop() {
 
       {
         std::lock_guard<std::mutex> subLock(robot_state_sub_mutex_);
-        msg_position = Eigen::Map<Eigen::Matrix<double, 7, 1>>(msg_.position.data());
-        msg_velocity = Eigen::Map<Eigen::Matrix<double, 7, 1>>(msg_.velocity.data());
+        desired_joints_positions = Eigen::Map<Eigen::Matrix<double, 7, 1>>(msg_.position.data());
+        desired_joints_velocities = Eigen::Map<Eigen::Matrix<double, 7, 1>>(msg_.velocity.data());
       }
 
       // online joints positions
       online_joints_positions_error =
-          convertArrayToEigenVector<7>(robotOnlineState.q) - msg_position;
+          convertArrayToEigenVector<7>(robotOnlineState.q) - desired_joints_positions;
       online_joints_velocities_error =
-          convertArrayToEigenVector<7>(robotOnlineState.dq) - msg_velocity;
+          convertArrayToEigenVector<7>(robotOnlineState.dq) - desired_joints_velocities;
 
       // robot coriolis (C(q,dq)*dq)
       robot_coriolis_times_dq = coriolisTimesDqVector(robotOnlineState, model);
