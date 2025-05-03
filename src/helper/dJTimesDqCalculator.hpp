@@ -17,7 +17,11 @@ inline Eigen::Matrix<double, 6, 1> dJTimesDqCalculator(
     const Eigen::Matrix<double, 7, 1>& joint_velocities,
     const franka::Duration& duration) noexcept {
   double inv_dt = 1 / duration.toSec();
-  dot_jacobian_matrix = inv_dt * (current_jacobian_matrix - previous_jacobian_matrix);
+
+  if (!std::isfinite(inv_dt)) {
+    dot_jacobian_matrix.setZero();
+  } else
+    dot_jacobian_matrix = inv_dt * (current_jacobian_matrix - previous_jacobian_matrix);
 
   // store for next iteration
   previous_jacobian_matrix = current_jacobian_matrix;

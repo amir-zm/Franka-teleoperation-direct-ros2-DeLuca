@@ -13,9 +13,9 @@
 #include <pthread.h>
 #include <sched.h>
 #include <sys/mman.h>
+#include <Eigen/Cholesky>
 #include <Eigen/Core>
 #include <Eigen/Dense>
-#include <Eigen/Cholesky>
 #include <algorithm>
 #include <array>
 #include <atomic>
