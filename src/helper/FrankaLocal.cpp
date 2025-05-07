@@ -94,10 +94,6 @@ FrankaLocal::~FrankaLocal() {
 }
 
 void FrankaLocal::localStatePublishFrequency() {
-  // // Pin this thread to core 4
-  // CPU_ZERO(&cpuset4_);
-  // CPU_SET(4, &cpuset4_);
-  // pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset4_);
   {
     std::lock_guard<std::mutex> publishLock(robot_state_pub_mutex_);
     msg_.header.stamp = this->now();
@@ -109,12 +105,12 @@ void FrankaLocal::localStatePublishFrequency() {
 }
 
 void FrankaLocal::controlLoop() {
-  // struct sched_param p{ .sched_priority = 99};
+  struct sched_param p{ .sched_priority = 99};
   // // Pin this thread to core 2
-  // CPU_ZERO(&cpuset2_);
-  // CPU_SET(2, &cpuset2_);
-  // pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset2_);
-  // pthread_setschedparam(pthread_self(), SCHED_FIFO, &p);
+  CPU_ZERO(&cpuset2_);
+  CPU_SET(2, &cpuset2_);
+  pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset2_);
+  pthread_setschedparam(pthread_self(), SCHED_FIFO, &p);
 
   RCLCPP_INFO(this->get_logger(), "Connecting to franka local robot ...");
 

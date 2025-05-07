@@ -48,8 +48,6 @@ class FrankaLocal : public rclcpp::Node {
   Eigen::Matrix<double, 6, 6> inertia_matrix_inverse_ = Eigen::Matrix<double, 6, 6>::Zero();
 
   cpu_set_t cpuset2_;
-  cpu_set_t cpuset4_;
-
   void controlLoop();
   void localStatePublishFrequency();
 };
